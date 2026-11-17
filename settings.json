@@ -1,0 +1,58 @@
+{
+    "typing": {
+        "speed_cps": 3.0,
+        "timing_mode": "difficulty",
+        "use_numpad": false,
+        "punct_delay": 0.15,
+        "newline_delay": 0.25,
+        "base_delay": 0.3333333333333333,
+        "smart_indent": true
+    },
+    "execution": {
+        "default_action_pause": 0.1
+    },
+    "mouse": {
+        "movement_profile": "curved",
+        "move_duration": 0.45,
+        "easing": "easeInOutQuad",
+        "click_delay": 0.05,
+        "double_click_interval": 0.15,
+        "human_like": true,
+        "line_interaction": {
+            "enabled": true,
+            "min_lines": 2,
+            "max_lines": 5,
+            "target_x": 600,
+            "target_y": 450,
+            "click_enabled": false
+        }
+    },
+    "safety": {
+        "failsafe": true,
+        "countdown_seconds": 3,
+        "require_confirmation": true,
+        "emergency_hotkey": "ctrl+alt+esc",
+        "beep_on_countdown": true
+    },
+    "hotkeys": {
+        "start": "ctrl+alt+f1",
+        "pause": "ctrl+alt+f2",
+        "resume": "ctrl+alt+f3",
+        "stop": "ctrl+alt+f4"
+    },
+    "editor": {
+        "indent_width": 4
+    },
+    "layout": {
+        "explorer_width": 284,
+        "quickinput_width": 705
+    },
+    "appearance": {
+        "theme": "Dark",
+        "color_theme": "dark-blue",
+        "window_width": 1180,
+        "window_height": 780,
+        "min_width": 960,
+        "min_height": 640
+    }
+}

@@ -1,0 +1,545 @@
+"""
+DeskPilot IDE - Right Panel: Multi-Action Timeline & Hardware Controllers
+Coordinates keyboard and mouse tasks into a unified automation timeline.
+Includes instant hardware controllers, coordinate pickers, and single-task runners.
+"""
+
+import time
+import threading
+from typing import Callable, Optional, List, Dict, Any
+import customtkinter as ctk
+import pyautogui
+from utils.logger import logger
+from automation.safety import safety
+from automation.mouse_controller import mouse_ctrl
+from automation.keyboard_controller import keyboard_ctrl
+from automation.sequence_executor import executor
+
+ACTION_TEMPLATES = [
+    {"type": "type_code", "label": "⌨️ Type Editor Code", "desc": "Type code from active center editor at 3 chars/sec"},
+    {"type": "type_text", "label": "🔤 Type Custom Text", "desc": "Type specified text at 3 chars/sec", "text": "Hello World"},
+    {"type": "move_mouse", "label": "🖱️ Human Cursor Movement", "desc": "Move cursor in human way (random time & length, move only)", "random_movement": True, "min_duration": 0.4, "max_duration": 1.0, "min_length": 50, "max_length": 220},
+    {"type": "press_key", "label": "↵ Press Key", "desc": "Press Enter, Tab, Esc", "key": "enter", "presses": 1},
+    {"type": "hotkey", "label": "✨ Shortcut / Hotkey", "desc": "Execute combination (e.g. Ctrl+C)", "keys": "ctrl+c"},
+    {"type": "wait", "label": "⏱️ Delay / Pause", "desc": "Wait specified seconds", "seconds": 1.0},
+]
+
+
+class IDETaskTimeline(ctk.CTkFrame):
+    """
+    Right sidebar in DeskPilot IDE containing:
+    1. Multi-Action Automation Timeline (add/edit/delete/reorder/enable/run single task)
+    2. Quick Mouse Controller (coordinates, human random motion, coordinate picker)
+    3. Quick Keyboard Controller (hotkeys, selection suite, shortcuts)
+    """
+    def __init__(
+        self,
+        master,
+        get_editor_code_cb: Optional[Callable[[], str]] = None,
+        on_timeline_changed: Optional[Callable[[List[Dict[str, Any]]], None]] = None,
+        **kwargs
+    ):
+        super().__init__(master, fg_color="#181920", corner_radius=8, border_width=1, border_color="#2b2d3c", **kwargs)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        self.get_editor_code_cb = get_editor_code_cb
+        self.on_timeline_changed = on_timeline_changed
+
+        # Automation Task Timeline List: Only human typing and human cursor movements (Move only, NO Save As)
+        self.tasks: List[Dict[str, Any]] = [
+            {"type": "wait", "seconds": 1.5, "description": "Wait for target editor focus", "enabled": True},
+            {"type": "move_mouse", "description": "Human cursor movement (random length & time)", "random_movement": True, "enabled": True},
+            {"type": "type_code", "description": "Type code from built-in editor at 3 chars/sec", "speed": 0.333, "enabled": True},
+            {"type": "press_key", "key": "enter", "presses": 1, "description": "Press Enter", "enabled": True}
+        ]
+
+        self._create_header()
+        self._create_tabs()
+
+    def _create_header(self):
+        """Header title and quick timeline actions."""
+        hdr = ctk.CTkFrame(self, fg_color="transparent")
+        hdr.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
+        hdr.grid_columnconfigure(0, weight=1)
+
+        lbl = ctk.CTkLabel(
+            hdr,
+            text="⚡ AUTOMATION TIMELINE",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color="#f3f4f6"
+        )
+        lbl.grid(row=0, column=0, sticky="w")
+
+        self.lbl_task_count = ctk.CTkLabel(
+            hdr,
+            text=f"{len(self.tasks)} tasks",
+            font=ctk.CTkFont(size=11),
+            text_color="#38bdf8"
+        )
+        self.lbl_task_count.grid(row=0, column=1, sticky="e")
+
+    def _create_tabs(self):
+        """Segmented tabs: Timeline, Mouse Tools, Keyboard Tools."""
+        self.tabview = ctk.CTkTabview(
+            self,
+            fg_color="transparent",
+            segmented_button_fg_color="#14151b",
+            segmented_button_selected_color="#2563eb",
+            segmented_button_selected_hover_color="#3b82f6"
+        )
+        self.tabview.grid(row=1, column=0, sticky="nsew", padx=6, pady=4)
+
+        # Tab 1: Timeline
+        self.tab_timeline = self.tabview.add("Timeline")
+        self._build_timeline_tab(self.tab_timeline)
+
+        # Tab 2: Mouse Tools
+        self.tab_mouse = self.tabview.add("Mouse")
+        self._build_mouse_tab(self.tab_mouse)
+
+        # Tab 3: Keyboard Tools
+        self.tab_kb = self.tabview.add("Keyboard")
+        self._build_keyboard_tab(self.tab_kb)
+
+    # =========================================================================
+    # TIMELINE TAB
+    # =========================================================================
+
+    def _build_timeline_tab(self, parent):
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        # Action Toolbar: Add Task, Clear
+        tb = ctk.CTkFrame(parent, fg_color="#14151b", height=32, corner_radius=6)
+        tb.grid(row=0, column=0, sticky="ew", padx=4, pady=(2, 6))
+
+        btn_add = ctk.CTkButton(
+            tb,
+            text="➕ Add Task",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#059669",
+            hover_color="#10b981",
+            width=85,
+            height=26,
+            command=self._show_add_task_dialog
+        )
+        btn_add.pack(side="left", padx=4, pady=3)
+
+        btn_clear = ctk.CTkButton(
+            tb,
+            text="🗑️ Clear",
+            font=ctk.CTkFont(size=11),
+            fg_color="#374151",
+            hover_color="#4b5563",
+            width=65,
+            height=26,
+            command=self._clear_tasks
+        )
+        btn_clear.pack(side="right", padx=4, pady=3)
+
+        # Scrollable Task List
+        self.timeline_scroll = ctk.CTkScrollableFrame(parent, fg_color="#14151b", corner_radius=6)
+        self.timeline_scroll.grid(row=1, column=0, sticky="nsew", padx=4, pady=2)
+        self.timeline_scroll.grid_columnconfigure(0, weight=1)
+
+        self._render_timeline()
+
+    def _render_timeline(self):
+        """Render the task items in the timeline."""
+        for child in self.timeline_scroll.winfo_children():
+            child.destroy()
+
+        self.lbl_task_count.configure(text=f"{len(self.tasks)} tasks")
+
+        if not self.tasks:
+            ctk.CTkLabel(
+                self.timeline_scroll,
+                text="No automation tasks in timeline.\nClick '+ Add Task' to configure.",
+                font=ctk.CTkFont(size=12),
+                text_color="#6b7280"
+            ).pack(pady=20)
+            return
+
+        for idx, task in enumerate(self.tasks):
+            self._render_task_card(idx, task)
+
+        if self.on_timeline_changed:
+            self.on_timeline_changed(self.tasks)
+
+    def _render_task_card(self, idx: int, task: Dict[str, Any]):
+        """Render a single task card with order, description, toggle, and controls."""
+        card = ctk.CTkFrame(self.timeline_scroll, fg_color="#1f212a", corner_radius=6)
+        card.pack(fill="x", padx=4, pady=3)
+        card.grid_columnconfigure(1, weight=1)
+
+        # Checkbox for enabled/disabled
+        enabled_var = ctk.BooleanVar(value=task.get("enabled", True))
+
+        def on_toggle():
+            task["enabled"] = enabled_var.get()
+            self._render_timeline()
+
+        chk = ctk.CTkCheckBox(
+            card,
+            text="",
+            variable=enabled_var,
+            width=20,
+            command=on_toggle
+        )
+        chk.grid(row=0, column=0, rowspan=2, padx=(8, 4), pady=4)
+
+        # Title & Type
+        action_type = task.get("type", "action").upper()
+        desc = task.get("description", action_type)
+        is_enabled = task.get("enabled", True)
+        title_color = "#f3f4f6" if is_enabled else "#6b7280"
+
+        lbl_title = ctk.CTkLabel(
+            card,
+            text=f"#{idx + 1} [{action_type}]",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color="#38bdf8" if is_enabled else "#4b5563",
+            anchor="w"
+        )
+        lbl_title.grid(row=0, column=1, sticky="w", padx=2, pady=(4, 0))
+
+        lbl_desc = ctk.CTkLabel(
+            card,
+            text=desc,
+            font=ctk.CTkFont(size=10),
+            text_color=title_color,
+            anchor="w"
+        )
+        lbl_desc.grid(row=1, column=1, sticky="w", padx=2, pady=(0, 4))
+
+        # Controls column: Up, Down, Run Single, Delete
+        ctrls = ctk.CTkFrame(card, fg_color="transparent")
+        ctrls.grid(row=0, column=2, rowspan=2, sticky="e", padx=4, pady=4)
+
+        btn_run = ctk.CTkButton(
+            ctrls,
+            text="▶",
+            width=24,
+            height=22,
+            font=ctk.CTkFont(size=10),
+            fg_color="#059669",
+            hover_color="#10b981",
+            command=lambda t=task: self._run_single_task(t)
+        )
+        btn_run.pack(side="left", padx=1)
+
+        btn_up = ctk.CTkButton(
+            ctrls,
+            text="▲",
+            width=22,
+            height=22,
+            font=ctk.CTkFont(size=9),
+            fg_color="#374151",
+            hover_color="#4b5563",
+            command=lambda i=idx: self._move_task_up(i)
+        )
+        btn_up.pack(side="left", padx=1)
+
+        btn_down = ctk.CTkButton(
+            ctrls,
+            text="▼",
+            width=22,
+            height=22,
+            font=ctk.CTkFont(size=9),
+            fg_color="#374151",
+            hover_color="#4b5563",
+            command=lambda i=idx: self._move_task_down(i)
+        )
+        btn_down.pack(side="left", padx=1)
+
+        btn_del = ctk.CTkButton(
+            ctrls,
+            text="✕",
+            width=22,
+            height=22,
+            font=ctk.CTkFont(size=10),
+            fg_color="#991b1b",
+            hover_color="#dc2626",
+            command=lambda i=idx: self._delete_task(i)
+        )
+        btn_del.pack(side="left", padx=1)
+
+    def _move_task_up(self, index: int):
+        if index > 0:
+            self.tasks[index], self.tasks[index - 1] = self.tasks[index - 1], self.tasks[index]
+            self._render_timeline()
+
+    def _move_task_down(self, index: int):
+        if index < len(self.tasks) - 1:
+            self.tasks[index], self.tasks[index + 1] = self.tasks[index + 1], self.tasks[index]
+            self._render_timeline()
+
+    def _delete_task(self, index: int):
+        if 0 <= index < len(self.tasks):
+            del self.tasks[index]
+            self._render_timeline()
+
+    def _clear_tasks(self):
+        self.tasks.clear()
+        self._render_timeline()
+
+    def _run_single_task(self, task: Dict[str, Any]):
+        """Execute a single task standalone without running full sequence."""
+        t_copy = dict(task)
+        if t_copy.get("type") == "type_code" and self.get_editor_code_cb:
+            t_copy["text"] = self.get_editor_code_cb()
+            t_copy["type"] = "type_text"
+            t_copy["speed"] = 0.333
+        executor.run_single_action(t_copy)
+
+    def _show_add_task_dialog(self):
+        """Display an Add Task modal dialog."""
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Add Automation Task")
+        dlg.geometry("380x420")
+        dlg.transient(self.winfo_toplevel())
+        dlg.grab_set()
+
+        ctk.CTkLabel(dlg, text="Select Task Template:", font=ctk.CTkFont(size=13, weight="bold")).pack(padx=14, pady=(14, 6))
+
+        scroll = ctk.CTkScrollableFrame(dlg, height=300)
+        scroll.pack(fill="both", expand=True, padx=14, pady=6)
+
+        for template in ACTION_TEMPLATES:
+            btn = ctk.CTkButton(
+                scroll,
+                text=f"{template['label']}\n{template['desc']}",
+                anchor="w",
+                font=ctk.CTkFont(size=11),
+                fg_color="#1f212a",
+                hover_color="#2d303e",
+                height=40,
+                command=lambda t=template: self._add_task_from_template(t, dlg)
+            )
+            btn.pack(fill="x", padx=4, pady=3)
+
+    def _add_task_from_template(self, template: Dict[str, Any], dlg):
+        new_task = dict(template)
+        new_task.pop("label", None)
+        new_task["enabled"] = True
+        self.tasks.append(new_task)
+        dlg.destroy()
+        self._render_timeline()
+
+    def set_tasks(self, tasks: List[Dict[str, Any]]):
+        self.tasks = [dict(t) for t in tasks]
+        self._render_timeline()
+
+    def get_executable_tasks(self) -> List[Dict[str, Any]]:
+        """Return executable task list resolving editor code references."""
+        executable = []
+        for t in self.tasks:
+            item = dict(t)
+            if item.get("type") == "type_code":
+                item["type"] = "type_text"
+                item["text"] = self.get_editor_code_cb() if self.get_editor_code_cb else ""
+                item["speed"] = 0.333
+                item["exact_speed"] = True
+            executable.append(item)
+        return executable
+
+    # =========================================================================
+    # MOUSE CONTROLLER TAB
+    # =========================================================================
+
+    def _build_mouse_tab(self, parent):
+        scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=4, pady=4)
+
+        # Coordinates Card
+        coord_card = ctk.CTkFrame(scroll, fg_color="#14151b", corner_radius=6)
+        coord_card.pack(fill="x", pady=4)
+
+        ctk.CTkLabel(coord_card, text="📍 Current Mouse Position:", font=ctk.CTkFont(size=11, weight="bold"), text_color="#9ca3af").pack(padx=10, pady=(8, 2))
+        
+        self.lbl_mouse_pos = ctk.CTkLabel(
+            coord_card,
+            text="X: 0   Y: 0",
+            font=ctk.CTkFont(family="Consolas", size=15, weight="bold"),
+            text_color="#38bdf8"
+        )
+        self.lbl_mouse_pos.pack(padx=10, pady=(0, 6))
+
+        # Coordinate Picker Button
+        self.btn_pick_coord = ctk.CTkButton(
+            coord_card,
+            text="🎯 Pick Coordinate (3s Countdown)",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#0284c7",
+            hover_color="#0369a1",
+            height=28,
+            command=self._handle_pick_coordinates
+        )
+        self.btn_pick_coord.pack(fill="x", padx=10, pady=(0, 8))
+
+        # Move Cursor Tools
+        move_card = ctk.CTkFrame(scroll, fg_color="#14151b", corner_radius=6)
+        move_card.pack(fill="x", pady=4)
+        move_card.grid_columnconfigure((0, 1), weight=1)
+
+        ctk.CTkLabel(move_card, text="Move Cursor To:", font=ctk.CTkFont(size=11, weight="bold"), text_color="#f3f4f6").grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 4))
+
+        self.ent_x = ctk.CTkEntry(move_card, placeholder_text="Target X", height=26)
+        self.ent_x.insert(0, "500")
+        self.ent_x.grid(row=1, column=0, padx=6, pady=2)
+
+        self.ent_y = ctk.CTkEntry(move_card, placeholder_text="Target Y", height=26)
+        self.ent_y.insert(0, "300")
+        self.ent_y.grid(row=1, column=1, padx=6, pady=2)
+
+        btn_move = ctk.CTkButton(
+            move_card,
+            text="Move Now",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#2563eb",
+            hover_color="#3b82f6",
+            height=26,
+            command=self._handle_move_now
+        )
+        btn_move.grid(row=2, column=0, columnspan=2, sticky="ew", padx=6, pady=(4, 4))
+
+        btn_rand_move = ctk.CTkButton(
+            move_card,
+            text="🎲 Random Human Move (Time & Length)",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#059669",
+            hover_color="#10b981",
+            height=26,
+            command=lambda: threading.Thread(target=mouse_ctrl.human_move_random, daemon=True).start()
+        )
+        btn_rand_move.grid(row=3, column=0, columnspan=2, sticky="ew", padx=6, pady=(0, 8))
+
+        # Clicks & Selection Tools
+        tools_card = ctk.CTkFrame(scroll, fg_color="#14151b", corner_radius=6)
+        tools_card.pack(fill="x", pady=4)
+
+        ctk.CTkLabel(tools_card, text="Click & Selection Actions:", font=ctk.CTkFont(size=11, weight="bold"), text_color="#f3f4f6").pack(padx=10, pady=(8, 4))
+
+        grid_f = ctk.CTkFrame(tools_card, fg_color="transparent")
+        grid_f.pack(fill="x", padx=6, pady=2)
+        grid_f.grid_columnconfigure((0, 1), weight=1)
+
+        ctk.CTkButton(grid_f, text="Left Click", height=26, fg_color="#374151", command=lambda: mouse_ctrl.click()).grid(row=0, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(grid_f, text="Double Click", height=26, fg_color="#374151", command=lambda: mouse_ctrl.double_click()).grid(row=0, column=1, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(grid_f, text="Select All (Ctrl+A)", height=26, fg_color="#059669", command=lambda: mouse_ctrl.select_all()).grid(row=1, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(grid_f, text="Deselect Selection", height=26, fg_color="#4b5563", command=lambda: mouse_ctrl.deselect_text()).grid(row=1, column=1, padx=2, pady=2, sticky="ew")
+
+        # Live coordinate polling loop
+        self._poll_mouse_coords()
+
+    def _poll_mouse_coords(self):
+        """Update mouse coordinates label."""
+        try:
+            x, y = mouse_ctrl.get_position()
+            self.lbl_mouse_pos.configure(text=f"X: {x}   Y: {y}")
+        except Exception:
+            pass
+        self.after(200, self._poll_mouse_coords)
+
+    def _handle_pick_coordinates(self):
+        """Countdown and capture coordinate."""
+        def worker():
+            for i in range(3, 0, -1):
+                self.after(0, lambda rem=i: self.btn_pick_coord.configure(text=f"Hover over target! {rem}s..."))
+                time.sleep(1.0)
+            x, y = mouse_ctrl.get_position()
+            self.after(0, lambda: self._apply_picked_coords(x, y))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _apply_picked_coords(self, x: int, y: int):
+        self.ent_x.delete(0, "end")
+        self.ent_x.insert(0, str(x))
+        self.ent_y.delete(0, "end")
+        self.ent_y.insert(0, str(y))
+        self.btn_pick_coord.configure(text="🎯 Pick Coordinate (3s Countdown)")
+        logger.info("MOUSE", f"Captured mouse coordinates: ({x}, {y})")
+
+    def _handle_move_now(self):
+        try:
+            x = int(self.ent_x.get())
+            y = int(self.ent_y.get())
+            mouse_ctrl.move_to(x, y, duration=0.35)
+        except Exception as e:
+            logger.error("MOUSE", f"Invalid coordinates: {e}")
+
+    # =========================================================================
+    # KEYBOARD CONTROLLER TAB
+    # =========================================================================
+
+    def _build_keyboard_tab(self, parent):
+        scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=4, pady=4)
+
+        # Quick Hotkeys Card
+        hk_card = ctk.CTkFrame(scroll, fg_color="#14151b", corner_radius=6)
+        hk_card.pack(fill="x", pady=4)
+
+        ctk.CTkLabel(hk_card, text="Quick Shortcuts:", font=ctk.CTkFont(size=11, weight="bold"), text_color="#f3f4f6").pack(padx=10, pady=(8, 4))
+
+        hk_grid = ctk.CTkFrame(hk_card, fg_color="transparent")
+        hk_grid.pack(fill="x", padx=6, pady=2)
+        hk_grid.grid_columnconfigure((0, 1, 2), weight=1)
+
+        ctk.CTkButton(hk_grid, text="Ctrl+S (Save)", height=26, fg_color="#2563eb", command=lambda: keyboard_ctrl.save()).grid(row=0, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(hk_grid, text="Ctrl+A (All)", height=26, fg_color="#374151", command=lambda: keyboard_ctrl.select_all()).grid(row=0, column=1, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(hk_grid, text="Ctrl+C (Copy)", height=26, fg_color="#374151", command=lambda: keyboard_ctrl.copy()).grid(row=0, column=2, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(hk_grid, text="Ctrl+V (Paste)", height=26, fg_color="#374151", command=lambda: keyboard_ctrl.paste()).grid(row=1, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(hk_grid, text="Ctrl+Z (Undo)", height=26, fg_color="#374151", command=lambda: keyboard_ctrl.undo()).grid(row=1, column=1, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(hk_grid, text="Ctrl+X (Cut)", height=26, fg_color="#374151", command=lambda: keyboard_ctrl.cut()).grid(row=1, column=2, padx=2, pady=2, sticky="ew")
+
+        # Arrow Selection Suite
+        sel_card = ctk.CTkFrame(scroll, fg_color="#14151b", corner_radius=6)
+        sel_card.pack(fill="x", pady=4)
+
+        ctk.CTkLabel(sel_card, text="Shift+Arrow Selection Suite:", font=ctk.CTkFont(size=11, weight="bold"), text_color="#38bdf8").pack(padx=10, pady=(8, 4))
+
+        sel_grid = ctk.CTkFrame(sel_card, fg_color="transparent")
+        sel_grid.pack(fill="x", padx=6, pady=2)
+        sel_grid.grid_columnconfigure((0, 1), weight=1)
+
+        ctk.CTkButton(sel_grid, text="Shift+Left (Char)", height=26, fg_color="#1f2937", command=lambda: keyboard_ctrl.select_by_arrows("left", mode="char")).grid(row=0, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(sel_grid, text="Shift+Right (Char)", height=26, fg_color="#1f2937", command=lambda: keyboard_ctrl.select_by_arrows("right", mode="char")).grid(row=0, column=1, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(sel_grid, text="Ctrl+Shift+Left (Word)", height=26, fg_color="#1f2937", command=lambda: keyboard_ctrl.select_by_arrows("left", mode="word")).grid(row=1, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(sel_grid, text="Ctrl+Shift+Right (Word)", height=26, fg_color="#1f2937", command=lambda: keyboard_ctrl.select_by_arrows("right", mode="word")).grid(row=1, column=1, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(sel_grid, text="Shift+Home (Line Start)", height=26, fg_color="#1f2937", command=lambda: keyboard_ctrl.select_by_arrows("home", mode="line")).grid(row=2, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(sel_grid, text="Shift+End (Line End)", height=26, fg_color="#1f2937", command=lambda: keyboard_ctrl.select_by_arrows("end", mode="line")).grid(row=2, column=1, padx=2, pady=2, sticky="ew")
+
+        # Custom Hotkey Runner
+        cust_card = ctk.CTkFrame(scroll, fg_color="#14151b", corner_radius=6)
+        cust_card.pack(fill="x", pady=4)
+
+        ctk.CTkLabel(cust_card, text="Custom Hotkey Runner:", font=ctk.CTkFont(size=11, weight="bold"), text_color="#f3f4f6").pack(padx=10, pady=(8, 2))
+
+        r_f = ctk.CTkFrame(cust_card, fg_color="transparent")
+        r_f.pack(fill="x", padx=6, pady=4)
+        r_f.grid_columnconfigure(0, weight=1)
+
+        self.ent_custom_hk = ctk.CTkEntry(r_f, placeholder_text="e.g. alt+tab", height=26)
+        self.ent_custom_hk.insert(0, "alt+tab")
+        self.ent_custom_hk.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+
+        btn_run_cust = ctk.CTkButton(
+            r_f,
+            text="Trigger (2s)",
+            width=90,
+            height=26,
+            fg_color="#2563eb",
+            command=self._handle_run_custom_hotkey
+        )
+        btn_run_cust.grid(row=0, column=1)
+
+    def _handle_run_custom_hotkey(self):
+        keys = self.ent_custom_hk.get().strip()
+        if not keys:
+            return
+        def worker():
+            time.sleep(2.0)
+            keyboard_ctrl.press_hotkey(keys)
+        threading.Thread(target=worker, daemon=True).start()

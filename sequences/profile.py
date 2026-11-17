@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MY PROJECTs</title>
+    <link rel="stylesheet" href="myprojects12.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+    <script src="aboutContact.js"></script>
+
+    <!-- style sheet for loader -->
+    <style>
+      /* Container for the loader */
+      .container {
+        position: fixed; /* Fix the loader to the screen */
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: white; /* Solid white background */
+        z-index: 9999; /* Ensure loader is on top */
+        display: none; /* Start with the loader hidden */
+      }
+
+      /* Make the rest of the page content non-interactive */
+      body.loading {
+        overflow: hidden; /* Prevent scrolling */
+      }
+
+      .loader {
+        font-size: 2.2em;
+        font-weight: bolder;
+        font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
+      }
+      .loader > * {
+        color: black;
+      }
+      .loader span {
+        display: inline-flex;
+      }
+      .loader span:nth-child(2) {
+        letter-spacing: -1em;
+        overflow: hidden;
+        animation: reveal 1500ms cubic-bezier(0.645, 0.045, 0.355, 1) infinite
+          alternate;
+      }
+      @keyframes reveal {
+        0%,
+        100% {
+          opacity: 0.5;
+          letter-spacing: -1em;
+        }
+        50% {
+          opacity: 1;
+          letter-spacing: 0em;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- loader -->
+    <div class="container" id="loaderContainer">
+      <!-- for loader -->
+      <div class="loader">
+        <span>&lt;</span>
+        <span>LOADING</span>
+        <span>/&gt;</span>
+      </div>
+    </div>
+
+    <!-- nav bar titles -->
+    <span>
+      <nav>
+        <a href="/my-web-page/index.html" class="navbar">
+          <i class="fi fi-rr-home" id="homeBtn"> <span>home</span> </i>
+        </a>
+        <a href="/myprojects12.html" class="navbar">
+          <i class="fi fi-rr-edit"> <span>MY projects</span> </i>
+        </a>
+        <a href="/my-web-page/index.html?section=about" class="navbar">
+          <i class="fi fi-rr-user" id="aboutBtn"> <span>about me</span> </i>
+        </a>
+        <a href="/my-web-page/index.html?section=contact" class="navbar">
+          <i class="fi fi-rr-envelope" id="contactBtn">
+            <span>Contact</span>
+          </i>
+        </a>
+      </nav>
+    </span>
+
+    <!-- project heading -->
+    <div class="HeaderParent" id="myProjectTitle">
+      <h1 class="header">MY PROJECT'S</h1>
+    </div>
+    <div class="myProjects">
+      <!-- Search functionality -->
+      <div class="search-container">
+        <i style="font-size: 24px" class="fa">&#xf002;</i>
+        <input
+          type="text"
+          id="projectSearch"
+          placeholder="Search projects..." />
+        <i style="font-size: 24px" class="fa fa-close" id="searchRemoveBtn"></i>
+      </div>
+
+      <div class="counts">
+        <a href="#NewProjects" class="CodeUsedLinks">
+          <div class="ProjectInfo" style="color: blue">latest projects</div>
+        </a>
+        <a href="#codeUsedTitle1" class="CodeUsedLinks">
+          <div class="ProjectInfo" style="color: blue">
+            Html & css projects = 18
+          </div>
+        </a>
+        <a href="#codeUsedTitle2" class="CodeUsedLinks">
+          <div class="ProjectInfo" id="CodeUsedLinks1" style="color: blue">
+            html , css & js projects = 16
+          </div>
+        </a>
+        <a href="#RealTimeProjects" class="CodeUsedLinks">
+          <div class="ProjectInfo" id="CodeUsedLinks1" style="color: blue">
+            Real Time Projects = 05
+          </div>
+        </a>
+        <div class="ProjectInfo">total projects = 34</div>
+        <div class="ProjectInfo lastUpdated">
+          <abbr
+            title="previous last updated : 02-03-2024"
+            style="text-decoration: none"
+            >last updated : 25-12-2024</abbr
+          >
+        </div>
+      </div>
+
+      <a href="#myProjectTitle" class="top" id="top"> Top &#8593; </a>
+
+      <!-- html css -->
+      <div class="CodeUsed" id="codeUsedTitle1">
+        <u>html & css projects</u>
+      </div>
+
+      <div class="ProjectsList">
+        <!-- html & css projects start here-->
+        <!-- HERE END AND HERE START 01-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/dyrJQZZ
+          "
+            target="_blank">
+            <img src="https://i.ibb.co/m4SPTRp/marquee1.jpg" alt="marquee1" />
+          </a>
+          <span class="projectTitle">1.marquee-1</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/dyrJQZZ"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen//dyrJQZZ"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 02-->
+        <span class="projectCard">
+          <a
+            href="https://codepen.io/Dhanunjaya-the-builder/full/MWxrzrw"
+            target="_blank">
+            <img src="https://i.ibb.co/nL5sFWj/marquee2.jpg" alt="marquee2" />
+          </a>
+          <span class="projectTitle">2.marquee-2</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/MWxrzrw"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/MWxrzrw"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 03-->
+        <span class="projectCard">
+          <a
+            href="https://codepen.io/Dhanunjaya-the-builder/full/NWJXEXV"
+            target="_blank">
+            <img
+              src="https://i.ibb.co/gR35sMD/bordershello.jpg"
+              alt="borders_hello" />
+          </a>
+          <span class="projectTitle">3.using borders-1</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/NWJXEXV"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/NWJXEXV"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 04-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/wvOpQyO
+          "
+            target="_blank">
+            <img src="https://i.ibb.co/fXJf51c/shapes.jpg" alt="shapes" />
+          </a>
+
+          <span class="projectTitle">4.using borders-2</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/wvOpQyO"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/wvOpQyO"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 05-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/RwdxqMJ
+          "
+            target="_blank">
+            <img src="https://i.ibb.co/tYBpzRT/borders.jpg" alt="borders" />
+          </a>
+
+          <span class="projectTitle">5.using borders-3</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/RwdxqMJ"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/RwdxqMJ"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 06-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/ExMQWMp
+            "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/8cpB6jQ/spacegallery.jpg"
+              alt="space_gallery" />
+          </a>
+
+          <span class="projectTitle">6.photo gallery-1 </span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/ExMQWMp"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/ExMQWMp"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 07-->
+        <span class="projectCard">
+          <span class="demoViewBtn">
+            <a
+              href="
+              https://codepen.io/Dhanunjaya-the-builder/full/LYaQWva
+              "
+              target="_blank">
+              <img
+                src="https://i.ibb.co/nrJytDX/templesgallery.jpg"
+                alt="temples_gallery" />
+            </a>
+          </span>
+
+          <span class="projectTitle">7.photo gallery-2</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/LYaQWva"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/LYaQWva"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 08-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/vYPdxqB
+            "
+            target="_blank">
+            <img src="https://i.ibb.co/j4yZQcD/float.jpg" alt="float" />
+          </a>
+
+          <span class="projectTitle">8.using float</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/vYPdxqB"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/vYPdxqB"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 09-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/VwRQpJJ
+            "
+            target="_blank">
+            <img src="https://i.ibb.co/PTHrB1c/cards.jpg" alt="cards" />
+          </a>
+
+          <span class="projectTitle">9.health cards</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/VwRQpJJ"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/VwRQpJJ"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 10-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/qBvxrev
+            "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/GMVY0gv/uploadques.jpg"
+              alt="upload_ques" />
+          </a>
+
+          <span class="projectTitle">10.upload qns</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/qBvxrev"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/qBvxrev"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 11-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/zYbRwOJ
+            "
+            target="_blank">
+            <img src="https://i.ibb.co/mtZP9Pv/boxinbox.jpg" alt="box_inbox" />
+          </a>
+
+          <span class="projectTitle">11.box inside box</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/zYbRwOJ"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/zYbRwOJ"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 12-->
+        <span class="projectCard">
+          <a
+            href="https://codepen.io/Dhanunjaya-the-builder/full/dyrJQzZ"
+            target="_blank">
+            <img src="https://i.ibb.co/R6t8bXy/ani1.jpg" alt="ani1" />
+          </a>
+          <span class="projectTitle">12.animation 1</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/dyrJQzZ"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/dyrJQzZ"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 13-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/ZEPrKYo
+            "
+            target="_blank">
+            <img src="https://i.ibb.co/jJ72wBt/ani2.jpg" alt="ani2" />
+          </a>
+          <span class="projectTitle">13.animation 2</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/ZEPrKYo"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/ZEPrKYo"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 14-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/ZEPrKGo
+            "
+            target="_blank">
+            <img src="https://i.ibb.co/tBJrXbj/moving.jpg" alt="moving" />
+          </a>
+          <span class="projectTitle">14.animation 3</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/ZEPrKGo"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/ZEPrKGo"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 15-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/ExMQmVO
+            "
+            target="_blank">
+            <img src="https://i.ibb.co/sChhz7Q/loading.jpg" alt="loading" />
+          </a>
+          <span class="projectTitle">15.animation 4</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/ExMQmVO"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/ExMQmVO"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 16-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/OJqQmMR
+            "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/N7HwsZf/fbloginpg.jpg"
+              alt="fb_login_pg" />
+          </a>
+
+          <span class="projectTitle">16.fb login page</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/OJqQmMR"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/OJqQmMR"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 17-->
+        <span class="projectCard">
+          <a
+            href="
+            https://codepen.io/Dhanunjaya-the-builder/full/eYXVWLX
+            "
+            target="_blank">
+            <img src="https://i.ibb.co/G2PgTd2/loginpg.jpg" alt="login_pg" />
+          </a>
+
+          <span class="projectTitle">17.login page</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/eYXVWLX"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/eYXVWLX"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 18-->
+        <span class="projectCard">
+          <a
+            href="https://codepen.io/Dhanunjaya-the-builder/full/OJqQmax
+            "
+            target="_blank">
+            <img src="https://i.ibb.co/qnsHpdg/instahome.jpg" alt="instagram" />
+          </a>
+
+          <span class="projectTitle">18.INSTAGRAM home page</span>
+
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/OJqQmax"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/OJqQmax"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+      </div>
+      <!-- html css & js -->
+      <div class="CodeUsed" id="codeUsedTitle2">
+        <u> html , css & js projects</u>
+      </div>
+
+      <div class="ProjectsList">
+        <!-- html , css & js projects start here-->
+
+        <!-- HERE END AND HERE START 19-->
+        <span class="projectCard">
+          <a href=" /js_programs/5th_sem_results/index.html" target="_blank">
+            <img src="https://i.ibb.co/Jp8Vy27/Result.png" alt="Result" />
+          </a>
+
+          <span class="projectTitle">19.Sem results</span>
+          <span class="demoViewBtn">
+            <a
+              href="/js_programs/5th_sem_results/index.html"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="/js_programs/5th_sem_results/index.html"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+          (its not updated!!)
+        </span>
+
+        <!-- HERE END AND HERE START 20-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/bGZLWOL
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/nbNnycv/data-type.png"
+              alt="data type"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">20.data type</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/bGZLWOL"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/bGZLWOL"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 21-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/dyrdWaX
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/RCry76k/even-or-odd.png"
+              alt="even or odd"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">21.even or odd</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/dyrdWaX"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/dyrdWaX"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 22-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/LYaQyaG
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/CBptF4W/Key-board.png"
+              alt="Key board"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">22.key board</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/LYaQyaG"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/LYaQyaG"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 23-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/vYPdmMg
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/ky20Dq5/mini-calculator.png"
+              alt="mini calculator"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">23.mini calculator</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/vYPdmMg"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/vYPdmMg"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 24-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/MWxQmRL
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/dpQbL4H/vowel-or-not.png"
+              alt="vowel or not"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">24.vowel or not</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/MWxQmRL"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/MWxQmRL"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 25-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/jOJZmoe
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/ck64N8q/biggest-among-5.png"
+              alt="biggest among 5"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">25.biggest among 5</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/jOJZmoe"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/jOJZmoe"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 26-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/JjzpJPG
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/6nLYJcR/swapping.png"
+              alt="swapping"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">26.swapping</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/JjzpJPG"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/JjzpJPG"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 27-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/xxBpajy
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/JH9xk2V/increment-or-decrement.png"
+              alt="increment or decrement" />
+          </a>
+
+          <span class="projectTitle">27.increment or decrement</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/xxBpajy"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/xxBpajy"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 28-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/yLwvoPM
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/2884xxN/arithmetic-operation.png"
+              alt="increment or decrement" />
+          </a>
+
+          <span class="projectTitle">28.Arithmetic operations</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/yLwvoPM"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/yLwvoPM"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 29-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/bGZvbmo
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/BnM8BVm/Screenshot-2024-01-31-230841.png"
+              alt="increment or decrement" />
+          </a>
+
+          <span class="projectTitle">29.Guess the number using popup</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/bGZvbmo"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/bGZvbmo"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 30-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/wvOmjvN
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/41k8MKg/rev-of-a-string.png"
+              alt="rev of a string"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">30.Reverse of a String</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/wvOmjvN"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/wvOmjvN"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 31-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/NWJMrPw
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/fXSSqBH/palindrome-or-not.png"
+              alt="palindrome or not"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">31.Palindrome or not</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/NWJMrPw"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/NWJMrPw"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 32-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/NWJMrRy
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/xh4J3Q6/digital-clock.png"
+              alt="digital clock"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">32.digital clock</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/NWJMrRy"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/NWJMrRy"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 33-->
+        <span class="projectCard" id="NewProjects">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/gOEzNGm
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/nzxCNYJ/array-element-finder.png"
+              alt="array element finder"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">33.Array Element Finder</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/gOEzNGm"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/gOEzNGm"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 34-->
+        <span class="projectCard">
+          <a
+            href="
+          https://codepen.io/Dhanunjaya-the-builder/full/qBvyZyK
+          "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/pZJwwJ3/sign-up-page.png"
+              alt="sign up page"
+              border="0" />
+          </a>
+
+          <span class="projectTitle">34.Sign up page</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/qBvyZyK"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/qBvyZyK"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+      </div>
+      <!-- real time projects -->
+      <div class="CodeUsed" id="codeUsedTitle3">
+        <u> Real Time Projects</u>
+      </div>
+
+      <div class="ProjectsList">
+        <!-- real time projects start here-->
+
+        <!-- HERE END AND HERE START 01-->
+        <span class="projectCard">
+          <a
+            href="
+        https://codepen.io/Dhanunjaya-the-builder/full/QWoJLqY
+        "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/9ND12Jj/Screenshot-2024-02-23-214230.png"
+              alt="calculator" />
+          </a>
+
+          <span class="projectTitle">01.Calculator</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/QWoJLqY"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/QWoJLqY"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 02-->
+        <span class="projectCard">
+          <a
+            href="
+        https://codepen.io/Dhanunjaya-the-builder/full/qBvzrKR
+        "
+            target="_blank">
+            <img
+              src="https://i.ibb.co/SNvMyxS/stop-watch.png"
+              alt="calculator" />
+          </a>
+
+          <span class="projectTitle">02.Stop watch</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/qBvzrKR"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/qBvzrKR"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 03-->
+        <span class="projectCard">
+          <a
+            href="https://codepen.io/Dhanunjaya-the-builder/full/qBvzomv"
+            target="_blank">
+            <img
+              src="https://i.ibb.co/rFXMQ4L/paint-webpage.png"
+              alt="calculator" />
+          </a>
+
+          <span class="projectTitle">03.Drawing Webpage</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/qBvzomv"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/qBvzomv"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 04-->
+        <span class="projectCard">
+          <a
+            href="https://codepen.io/Dhanunjaya-the-builder/full/oNOveab"
+            target="_blank">
+            <img
+              src="https://i.ibb.co/XDz6wx2/Screenshot-2024-02-29-055300.png"
+              alt="weather Report" />
+          </a>
+
+          <span class="projectTitle">04.Weather Report</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/oNOveab"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/oNOveab"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+
+        <!-- HERE END AND HERE START 05-->
+        <span class="projectCard">
+          <a
+            href="https://codepen.io/Dhanunjaya-the-builder/full/gOybpyz"
+            target="_blank">
+            <img
+              src="https://i.ibb.co/vxfvrRH/analog-clock.png"
+              alt="analog clock" />
+          </a>
+
+          <span class="projectTitle">05.Analog Clock</span>
+          <span class="demoViewBtn">
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/full/gOybpyz"
+              class="res-view"
+              target="_blank">
+              DEMO
+            </a>
+            <a
+              href="https://codepen.io/Dhanunjaya-the-builder/pen/gOybpyz"
+              class="res-view"
+              id="viewCode"
+              target="_blank">
+              VIEW CODE
+            </a>
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <footer>
+      <div class="footer-container">
+        <div class="footer-section">
+          <h3>Quick Links</h3>
+          <ul class="footer-links">
+            <li><a href="/my-web-page/index.html">Home</a></li>
+            <li><a href="#">Projects</a></li>
+            <li><a href="/my-web-page/index.html?section=about">About</a></li>
+            <li><a href="/my-web-page/index.html?section=contact">Contact</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-section">
+          <h3>Contact</h3>
+          <ul class="footer-links">
+            <li>
+              Email:
+              <a href="mailto:jayad6889@Gmail.com">jayad6889@Gmail.com</a>
+            </li>
+            <li>Phone: <a href="tel:+917569099290">7569099290</a></li>
+            <li>
+              Location: Dharmavaram, Sri sathya sai (dist), Andhra Pradhesh ,
+              India
+            </li>
+          </ul>
+        </div>
+
+        <div class="footer-section">
+          <h3>Follow Us</h3>
+          <div class="social-links">
+            <a href="#"><i class="fi fi-brands-github"></i></a>
+            <a href="#"><i class="fi fi-brands-linkedin"></i></a>
+            <a href="#"><i class="fi fi-brands-twitter"></i></a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 DJ. All rights reserved.</p>
+      </div>
+    </footer>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Smooth scroll for links with class 'CodeUsedLinks' and 'top'
+        document
+          .querySelectorAll("a.CodeUsedLinks, a.top")
+          .forEach(function (link) {
+            link.addEventListener("click", function (e) {
+              e.preventDefault();
+              const targetId = this.getAttribute("href").substring(1);
+              const targetElement = document.getElementById(targetId);
+
+              if (targetElement) {
+                window.scrollTo({
+                  top: targetElement.offsetTop - 50, // Adjust the offset if needed
+                  behavior: "smooth",
+                });
+              }
+            });
+          });
+        document.querySelectorAll("a.CodeUsedLinks").forEach(function (link) {
+          link.addEventListener("click", function (e) {
+            e.preventDefault();
+            const targetId = this.getAttribute("href").substring(1);
+            const targetElement = document.getElementById(targetId);
+
+            if (targetElement) {
+              window.scrollTo({
+                top: targetElement.offsetTop - 60, // Adjust the offset if needed
+                behavior: "smooth",
+              });
+            }
+          });
+        });
+      });
+    </script>
+
+    <!-- js for loader -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Show loader when page is loading
+        showLoader();
+
+        // Simulate page loading completion (or replace this with your actual loading logic)
+        setTimeout(function () {
+          hideLoader(); // Hide loader after the simulated loading time (3 seconds)
+        }, 1000); // Simulating 3 seconds of loading delay
+      });
+
+      // Show the loader
+      function showLoader() {
+        document.body.classList.add("loading"); // Add the 'loading' class to the body
+        document.getElementById("loaderContainer").style.display = "flex"; // Show the loader
+      }
+
+      // Hide the loader
+      function hideLoader() {
+        document.body.classList.remove("loading"); // Remove the 'loading' class from the body
+        document.getElementById("loaderContainer").style.display = "none"; // Hide the loader
+      }
+    </script>
+    <script src="myprojects12.js"></script>
+  </body>
+</html>

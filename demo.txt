@@ -1,0 +1,18 @@
+from collections import namedtuple
+import copy
+import functools
+import heapq
+import itertools
+import logging
+import Queue
+import random
+import threading
+
+# data types
+Proposal = namedtuple('Proposal', ['caller', 'client_id', 'input'])
+Ballot = namedtuple('Ballot', ['n', 'leader'])
+
+# message typesAccepted = namedtuple('Accepted', ['slot', 'ballot_num'])
+Accept = namedtuple('Accept', ['slot', 'ballot_num', 'proposal'])
+Decision = namedtuple('Decision', ['slot', 'proposal'])
+Invoked = namedtuple('Invoked', ['client_id', 'output'])

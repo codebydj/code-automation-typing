@@ -1,0 +1,76 @@
+{
+    "name": "Python Function Auto-Typer",
+    "description": "Demonstrates human-style code typing, comment insertion, indentation, and natural human cursor movements.",
+    "created_at": "2026-11-17T14:01:43.906324",
+    "actions": [
+        {
+            "type": "wait",
+            "seconds": 1.5,
+            "description": "Wait for user to switch into target editor window"
+        },
+        {
+            "type": "move_mouse",
+            "random_movement": true,
+            "min_duration": 0.4,
+            "max_duration": 0.9,
+            "min_length": 50,
+            "max_length": 180,
+            "description": "Human cursor movement for random time and length"
+        },
+        {
+            "type": "type_text",
+            "text": "# DeskPilot Automated Code Generation Demo\n",
+            "speed": 0.04,
+            "description": "Type header comment"
+        },
+        {
+            "type": "type_text",
+            "text": "def calculate_velocity(distance_km: float, time_hr: float) -> float:\n",
+            "speed": 0.04,
+            "description": "Type function signature"
+        },
+        {
+            "type": "move_mouse",
+            "random_movement": true,
+            "min_duration": 0.35,
+            "max_duration": 0.8,
+            "min_length": 40,
+            "max_length": 150,
+            "description": "Human cursor movement for random time and length"
+        },
+        {
+            "type": "type_text",
+            "text": "    \"\"\"Compute average velocity in kilometers per hour.\"\"\"\n",
+            "speed": 0.04,
+            "description": "Type docstring"
+        },
+        {
+            "type": "type_text",
+            "text": "    if time_hr <= 0:\n",
+            "speed": 0.04,
+            "description": "Type guard clause"
+        },
+        {
+            "type": "type_text",
+            "text": "        raise ValueError('Time must be greater than zero')\n",
+            "speed": 0.04,
+            "description": "Type exception raise"
+        },
+        {
+            "type": "type_text",
+            "text": "    return round(distance_km / time_hr, 2)\n",
+            "speed": 0.04,
+            "description": "Type return statement"
+        },
+        {
+            "type": "move_mouse",
+            "random_movement": true,
+            "min_duration": 0.4,
+            "max_duration": 1.0,
+            "min_length": 60,
+            "max_length": 200,
+            "description": "Human cursor movement for random time and length"
+        }
+    ],
+    "updated_at": "2026-11-17T14:01:43.906484"
+}

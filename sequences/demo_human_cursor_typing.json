@@ -1,0 +1,37 @@
+{
+    "name": "Human Typing & Cursor Routine",
+    "description": "Demonstrates human typing with natural cursor movements for random durations and lengths.",
+    "created_at": "2026-11-17T14:01:43.907887",
+    "actions": [
+        {
+            "type": "wait",
+            "seconds": 1.5,
+            "description": "Prepare target text area"
+        },
+        {
+            "type": "move_mouse",
+            "random_movement": true,
+            "min_duration": 0.4,
+            "max_duration": 0.9,
+            "min_length": 50,
+            "max_length": 200,
+            "description": "Human cursor movement (random length and time)"
+        },
+        {
+            "type": "type_text",
+            "text": "DeskPilot simulates authentic human interaction.\nEvery keystroke and cursor movement feels natural and smooth.\n",
+            "speed": 0.04,
+            "description": "Type demonstration paragraph"
+        },
+        {
+            "type": "move_mouse",
+            "random_movement": true,
+            "min_duration": 0.5,
+            "max_duration": 1.1,
+            "min_length": 60,
+            "max_length": 220,
+            "description": "Human cursor movement (random length and time)"
+        }
+    ],
+    "updated_at": "2026-11-17T14:01:43.908081"
+}
