@@ -131,94 +131,48 @@ class DeskPilotApp(ctk.CTk):
         logger.info("SYSTEM", f"DeskPilot v{APP_VERSION} initialized. Default typing speed: 3 chars/sec.")
 
     # =========================================================================
-    # 1. TOP TOOLBAR
+    # 1. TOP TOOLBAR WITH FLEX WRAP
     # =========================================================================
 
+    def _is_difficulty_mode(self) -> bool:
+        """Check if character difficulty-based typing mode is selected."""
+        if not hasattr(self, "opt_mode") or self.opt_mode is None:
+            return True
+        mode_str = str(self.opt_mode.get()).lower()
+        return "diff" in mode_str
+
     def _create_top_toolbar(self):
-        """Build the streamlined, ultra-responsive top toolbar with zero-lag controls."""
+        """Build the streamlined, flex-wrapping top toolbar with zero-lag controls."""
         self.toolbar = ctk.CTkFrame(
             self,
-            height=44,
             corner_radius=0,
             fg_color="#111319",
             border_width=1,
             border_color="#202330"
         )
         self.toolbar.grid(row=0, column=0, sticky="ew")
-        self.toolbar.grid_propagate(False)
 
-        # 1. Pack Right Deck FIRST so it never collapses or overlaps on any resolution
-        self.right_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
-        self.right_deck.pack(side="right", padx=(2, 6), pady=6)
+        # Decks for true responsive flex-wrapping
+        self.brand_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
+        self.file_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
+        self.checkpoint_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
+        self.exec_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
+        self.util_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
+        self.selectors_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
+        self.right_deck = self.selectors_deck  # Full backward compatibility
 
-        # Speed selector
-        self.opt_speed = ctk.CTkOptionMenu(
-            self.right_deck,
-            values=["3 CPS", "1 CPS", "1.5 CPS", "2 CPS", "2.5 CPS", "3.5 CPS", "5 CPS", "Custom..."],
-            width=70,
-            height=26,
-            font=ctk.CTkFont(size=10),
-            command=self._on_speed_changed
-        )
-        curr_speed = float(self.config_data.get("typing", {}).get("speed_cps", 3.0))
-        speed_txt = f"{int(curr_speed)} CPS" if curr_speed.is_integer() else f"{curr_speed:.1f} CPS"
-        curr_vals = list(self.opt_speed.cget("values"))
-        if speed_txt not in curr_vals:
-            curr_vals.insert(0, speed_txt)
-            self.opt_speed.configure(values=curr_vals)
-        self.opt_speed.set(speed_txt)
-        self.opt_speed.pack(side="right", padx=(2, 0))
-
-        ctk.CTkLabel(self.right_deck, text="Speed:", font=ctk.CTkFont(size=10), text_color="#94a3b8").pack(side="right", padx=(4, 1))
-
-        # Mode selector: Difficulty vs Fixed CPS
-        self.opt_mode = ctk.CTkOptionMenu(
-            self.right_deck,
-            values=["Difficulty", "Fixed CPS"],
-            width=90,
-            height=26,
-            font=ctk.CTkFont(size=10),
-            command=self._on_mode_changed
-        )
-        cfg_mode = str(self.config_data.get("typing", {}).get("timing_mode", "difficulty")).lower()
-        init_mode = "Fixed CPS" if cfg_mode == "fixed" else "Difficulty"
-        self.opt_mode.set(init_mode)
-        self.opt_mode.pack(side="right", padx=(2, 0))
-
-        ctk.CTkLabel(self.right_deck, text="Mode:", font=ctk.CTkFont(size=10), text_color="#94a3b8").pack(side="right", padx=(4, 1))
-
-        # Target app selector
-        self.opt_target = ctk.CTkOptionMenu(
-            self.right_deck,
-            values=["VS Code", "Notepad", "Active Win"],
-            width=88,
-            height=26,
-            font=ctk.CTkFont(size=10)
-        )
-        self.opt_target.set("VS Code")
-        self.opt_target.pack(side="right", padx=(2, 0))
-
-        ctk.CTkLabel(self.right_deck, text="Target:", font=ctk.CTkFont(size=10), text_color="#94a3b8").pack(side="right", padx=(4, 1))
-
-        # 2. Pack Left Deck Controls (Clean, fast, high-contrast, zero-lag buttons)
-        # Brand Badge
-        brand_frame = ctk.CTkFrame(self.toolbar, fg_color="transparent")
-        brand_frame.pack(side="left", padx=(6, 2), pady=6)
-
+        # --- 1. Brand Deck ---
         lbl_logo = ctk.CTkLabel(
-            brand_frame,
+            self.brand_deck,
             text="⚡ DeskPilot",
             font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
             text_color="#f8fafc"
         )
-        lbl_logo.pack(side="left")
+        lbl_logo.pack(side="left", padx=(4, 6), pady=4)
 
-        # Separator
-        ctk.CTkFrame(self.toolbar, width=1, height=18, fg_color="#262a3b").pack(side="left", padx=2)
-
-        # File Controls: New, Open, Save
+        # --- 2. File Deck ---
         self.btn_new = ctk.CTkButton(
-            self.toolbar,
+            self.file_deck,
             text="📄 New",
             font=ctk.CTkFont(family="Segoe UI", size=10),
             fg_color="#1e2230",
@@ -233,7 +187,7 @@ class DeskPilotApp(ctk.CTk):
         self.btn_new.pack(side="left", padx=1)
 
         self.btn_open = ctk.CTkButton(
-            self.toolbar,
+            self.file_deck,
             text="📂 Open",
             font=ctk.CTkFont(family="Segoe UI", size=10),
             fg_color="#1e2230",
@@ -248,7 +202,7 @@ class DeskPilotApp(ctk.CTk):
         self.btn_open.pack(side="left", padx=1)
 
         self.btn_save = ctk.CTkButton(
-            self.toolbar,
+            self.file_deck,
             text="💾 Save",
             font=ctk.CTkFont(family="Segoe UI", size=10),
             fg_color="#1e2230",
@@ -262,12 +216,54 @@ class DeskPilotApp(ctk.CTk):
         )
         self.btn_save.pack(side="left", padx=1)
 
-        # Separator
-        ctk.CTkFrame(self.toolbar, width=1, height=18, fg_color="#262a3b").pack(side="left", padx=2)
+        # --- 3. Checkpoint & Estimate Deck ---
+        self.btn_checkpoint = ctk.CTkButton(
+            self.checkpoint_deck,
+            text="🔖 Mark",
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            fg_color="#1e293b",
+            hover_color="#334155",
+            text_color="#cbd5e1",
+            cursor="hand2",
+            width=60,
+            height=26,
+            corner_radius=4,
+            command=self._handle_checkpoint
+        )
+        self.btn_checkpoint.pack(side="left", padx=(1, 0))
 
-        # Execution Controls: Start, Pause, Resume, Stop
+        self.btn_clear_checkpoint = ctk.CTkButton(
+            self.checkpoint_deck,
+            text="✖",
+            font=ctk.CTkFont(size=9, weight="bold"),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b",
+            text_color="#fca5a5",
+            cursor="hand2",
+            width=18,
+            height=26,
+            corner_radius=3,
+            command=self._clear_checkpoint
+        )
+
+        self.btn_est_time = ctk.CTkButton(
+            self.checkpoint_deck,
+            text="⏱ 00:00:00",
+            font=ctk.CTkFont(family="Consolas", size=10, weight="bold"),
+            fg_color="#064e3b",
+            hover_color="#047857",
+            text_color="#34d399",
+            cursor="hand2",
+            width=74,
+            height=26,
+            corner_radius=4,
+            command=self._handle_calc_time
+        )
+        self.btn_est_time.pack(side="left", padx=1)
+
+        # --- 4. Execution Deck ---
         self.btn_start = ctk.CTkButton(
-            self.toolbar,
+            self.exec_deck,
             text="▶ Start",
             font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
             width=54,
@@ -281,7 +277,7 @@ class DeskPilotApp(ctk.CTk):
         self.btn_start.pack(side="left", padx=1)
 
         self.btn_pause = ctk.CTkButton(
-            self.toolbar,
+            self.exec_deck,
             text="⏸ Pause",
             font=ctk.CTkFont(family="Segoe UI", size=10),
             width=54,
@@ -296,7 +292,7 @@ class DeskPilotApp(ctk.CTk):
         self.btn_pause.pack(side="left", padx=1)
 
         self.btn_resume = ctk.CTkButton(
-            self.toolbar,
+            self.exec_deck,
             text="⏯ Resume",
             font=ctk.CTkFont(family="Segoe UI", size=10),
             width=58,
@@ -311,7 +307,7 @@ class DeskPilotApp(ctk.CTk):
         self.btn_resume.pack(side="left", padx=1)
 
         self.btn_stop = ctk.CTkButton(
-            self.toolbar,
+            self.exec_deck,
             text="⏹ Stop",
             font=ctk.CTkFont(family="Segoe UI", size=10),
             width=50,
@@ -325,65 +321,9 @@ class DeskPilotApp(ctk.CTk):
         )
         self.btn_stop.pack(side="left", padx=1)
 
-        # Separator
-        ctk.CTkFrame(self.toolbar, width=1, height=18, fg_color="#262a3b").pack(side="left", padx=2)
-
-        # Checkpoint Control (F10)
-        self.checkpoint_frame = ctk.CTkFrame(self.toolbar, fg_color="transparent")
-        self.checkpoint_frame.pack(side="left", padx=1)
-
-        self.btn_checkpoint = ctk.CTkButton(
-            self.checkpoint_frame,
-            text="🔖 Mark",
-            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
-            fg_color="#1e293b",
-            hover_color="#334155",
-            text_color="#cbd5e1",
-            cursor="hand2",
-            width=60,
-            height=26,
-            corner_radius=4,
-            command=self._handle_checkpoint
-        )
-        self.btn_checkpoint.pack(side="left")
-
-        self.btn_clear_checkpoint = ctk.CTkButton(
-            self.checkpoint_frame,
-            text="✖",
-            font=ctk.CTkFont(size=9, weight="bold"),
-            fg_color="#7f1d1d",
-            hover_color="#991b1b",
-            text_color="#fca5a5",
-            cursor="hand2",
-            width=18,
-            height=26,
-            corner_radius=3,
-            command=self._clear_checkpoint
-        )
-        # Not packed until checkpoint is set
-
-        # Estimated Time Button / Display
-        self.btn_est_time = ctk.CTkButton(
-            self.toolbar,
-            text="⏱ 00:00:00",
-            font=ctk.CTkFont(family="Consolas", size=10, weight="bold"),
-            fg_color="#064e3b",
-            hover_color="#047857",
-            text_color="#34d399",
-            cursor="hand2",
-            width=74,
-            height=26,
-            corner_radius=4,
-            command=self._handle_calc_time
-        )
-        self.btn_est_time.pack(side="left", padx=1)
-
-        # Separator
-        ctk.CTkFrame(self.toolbar, width=1, height=18, fg_color="#262a3b").pack(side="left", padx=2)
-
-        # Random Rest Pause Toggle
+        # --- 5. Utilities Deck ---
         self.btn_rest_pause = ctk.CTkButton(
-            self.toolbar,
+            self.util_deck,
             text="☕ Rest: ON" if self._random_pause_enabled else "☕ Rest: OFF",
             font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
             width=68,
@@ -397,9 +337,8 @@ class DeskPilotApp(ctk.CTk):
         )
         self.btn_rest_pause.pack(side="left", padx=1)
 
-        # Preferences & Settings Button
         self.btn_settings = ctk.CTkButton(
-            self.toolbar,
+            self.util_deck,
             text="⚙️ Settings",
             font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
             width=68,
@@ -412,6 +351,99 @@ class DeskPilotApp(ctk.CTk):
             command=self._handle_open_settings
         )
         self.btn_settings.pack(side="left", padx=1)
+
+        # --- 6. Selectors Deck ---
+        ctk.CTkLabel(self.selectors_deck, text="Target:", font=ctk.CTkFont(size=10), text_color="#94a3b8").pack(side="left", padx=(2, 1))
+        self.opt_target = ctk.CTkOptionMenu(
+            self.selectors_deck,
+            values=["VS Code", "Notepad", "Active Win"],
+            width=84,
+            height=26,
+            font=ctk.CTkFont(size=10)
+        )
+        self.opt_target.set("VS Code")
+        self.opt_target.pack(side="left", padx=(1, 4))
+
+        ctk.CTkLabel(self.selectors_deck, text="Mode:", font=ctk.CTkFont(size=10), text_color="#94a3b8").pack(side="left", padx=(2, 1))
+        self.opt_mode = ctk.CTkOptionMenu(
+            self.selectors_deck,
+            values=["Difficulty", "Fixed CPS"],
+            width=88,
+            height=26,
+            font=ctk.CTkFont(size=10),
+            command=self._on_mode_changed
+        )
+        cfg_mode = str(self.config_data.get("typing", {}).get("timing_mode", "difficulty")).lower()
+        init_mode = "Fixed CPS" if cfg_mode == "fixed" else "Difficulty"
+        self.opt_mode.set(init_mode)
+        self.opt_mode.pack(side="left", padx=(1, 4))
+
+        ctk.CTkLabel(self.selectors_deck, text="Speed:", font=ctk.CTkFont(size=10), text_color="#94a3b8").pack(side="left", padx=(2, 1))
+        self.opt_speed = ctk.CTkOptionMenu(
+            self.selectors_deck,
+            values=["3 CPS", "1 CPS", "1.5 CPS", "2 CPS", "2.5 CPS", "3.5 CPS", "5 CPS", "Custom..."],
+            width=68,
+            height=26,
+            font=ctk.CTkFont(size=10),
+            command=self._on_speed_changed
+        )
+        curr_speed = float(self.config_data.get("typing", {}).get("speed_cps", 3.0))
+        speed_txt = f"{int(curr_speed)} CPS" if curr_speed.is_integer() else f"{curr_speed:.1f} CPS"
+        curr_vals = list(self.opt_speed.cget("values"))
+        if speed_txt not in curr_vals:
+            curr_vals.insert(0, speed_txt)
+            self.opt_speed.configure(values=curr_vals)
+        self.opt_speed.set(speed_txt)
+        self.opt_speed.pack(side="left", padx=(1, 2))
+
+        # Initial responsive reflow and window configure listener
+        self._navbar_reflow_timer = None
+        self._reflow_navbar()
+        self.bind("<Configure>", self._on_window_configure)
+
+    def _on_window_configure(self, event):
+        """Debounced window configure event to trigger responsive navbar flex wrapping."""
+        if event.widget == self:
+            if self._navbar_reflow_timer:
+                self.after_cancel(self._navbar_reflow_timer)
+            self._navbar_reflow_timer = self.after(30, self._reflow_navbar)
+
+    def _reflow_navbar(self, event=None):
+        """Flex-wrap toolbar decks into rows dynamically based on available width."""
+        if not hasattr(self, "toolbar") or not self.toolbar.winfo_exists():
+            return
+        w = self.winfo_width()
+        if w <= 10:
+            w = 1180
+
+        decks = [
+            self.brand_deck,
+            self.file_deck,
+            self.checkpoint_deck,
+            self.exec_deck,
+            self.util_deck,
+            self.selectors_deck
+        ]
+
+        for d in decks:
+            d.grid_forget()
+
+        row = 0
+        col = 0
+        cur_w = 0
+        for d in decks:
+            dw = d.winfo_reqwidth() + 6
+            if cur_w + dw > (w - 16) and cur_w > 0:
+                row += 1
+                col = 0
+                cur_w = 0
+            d.grid(row=row, column=col, padx=(2, 4), pady=2, sticky="w")
+            col += 1
+            cur_w += dw
+
+        num_rows = row + 1
+        new_h = max(42, num_rows * 36 + 6)
+        self.toolbar.configure(height=new_h)
 
     # =========================================================================
     # 2. MAIN WORKSPACE (ONE LARGE CODE EDITOR)
@@ -535,7 +567,8 @@ class DeskPilotApp(ctk.CTk):
                 el_s = elapsed_sec % 60
                 el_str = f"{el_h:02d}:{el_m:02d}:{el_s:02d}"
 
-                self._ui_actions.put(lambda: self._update_live_telemetry(ln, idx, tot, pct, rem_str, el_str, ch, col))
+                cat = tel.get("category", "")
+                self._ui_actions.put(lambda: self._update_live_telemetry(ln, idx, tot, pct, rem_str, el_str, ch, col, cat))
 
         def on_action_start(idx, action):
             pass
@@ -572,13 +605,17 @@ class DeskPilotApp(ctk.CTk):
         executor.on_keyboard_action = on_kb_action
         executor.on_rest_pause_countdown = on_rest_pause_countdown
 
-    def _update_live_telemetry(self, line: int, char_idx: int, total_chars: int, pct: float, rem_time: str, el_time: str, ch: str, col: int):
-        """Update live status bar numbers and editor pointer."""
-        code = self.panel_editor.get_code()
-        total_lines = code.count("\n") + 1
-        self.lbl_sb_lines.configure(text=f"Line: {line} / {total_lines}")
+    def _update_live_telemetry(self, line: int, char_idx: int, total_chars: int, pct: float, rem_time: str, el_time: str, ch: str, col: int, cat: str = ""):
+        """Update live status bar numbers, character difficulty HUD, and editor pointer."""
+        tot_lines = getattr(self, "_cached_total_lines", 0)
+        if tot_lines <= 0:
+            tot_lines = self.panel_editor.get_code().count("\n") + 1
+        self.lbl_sb_lines.configure(text=f"Line: {line} / {tot_lines}")
         self.lbl_sb_progress.configure(text=f"Progress: {pct:.1f}% ({char_idx} / {total_chars} chars)")
         self.lbl_sb_time.configure(text=f"Est. Remaining: {rem_time} • Elapsed: {el_time}")
+        if self._is_difficulty_mode() and cat and executor.get_state() == ExecutionState.RUNNING:
+            disp_c = repr(ch)[1:-1] if ch else ""
+            self.lbl_sb_status.configure(text=f"● Typing '{disp_c}' [{cat}]", text_color="#38bdf8")
         self.panel_editor.show_typing_pointer(line, col, ch)
 
     def _update_ui_state(self, state: ExecutionState):
@@ -694,8 +731,12 @@ class DeskPilotApp(ctk.CTk):
             logger.info("SYSTEM", f"Resuming automation from checkpoint at char {start_char_idx} (Line {self.checkpoint_line}).")
 
         # Code typing task (strictly character typing only, natural mouse after every line)
-        is_difficulty = getattr(self, "opt_mode", None) is None or self.opt_mode.get() == "Difficulty-Based"
+        is_difficulty = self._is_difficulty_mode()
         rp_cfg = self.config_data.get("random_pause", {})
+        rp_work_min = float(rp_cfg.get("work_min_minutes", 20.0))
+        rp_work_max = float(rp_cfg.get("work_max_minutes", 25.0))
+        rp_brk_min = float(rp_cfg.get("break_min_minutes", 3.0))
+        rp_brk_max = float(rp_cfg.get("break_max_minutes", 5.0))
         rp_min_l = int(rp_cfg.get("min_interval_lines", 15))
         rp_max_l = int(rp_cfg.get("max_interval_lines", 30))
         rp_min_s = int(rp_cfg.get("min_duration_seconds", 180))
@@ -722,6 +763,10 @@ class DeskPilotApp(ctk.CTk):
             "max_lines": m_max_l,
             "natural_line_mouse": True,
             "random_pause_enabled": self._random_pause_enabled,
+            "work_min_minutes": rp_work_min,
+            "work_max_minutes": rp_work_max,
+            "break_min_minutes": rp_brk_min,
+            "break_max_minutes": rp_brk_max,
             "random_pause_min_lines": rp_min_l,
             "random_pause_max_lines": rp_max_l,
             "random_pause_min_seconds": rp_min_s,
@@ -741,6 +786,7 @@ class DeskPilotApp(ctk.CTk):
         tot_chars = len(code)
         tot_lines = code.count("\n") + 1
         curr_line = self.checkpoint_line or 1
+        self._cached_total_lines = tot_lines
 
         tot_secs, est_str = timing_controller.calculate_sequence_estimate(
             text=remaining_code,
@@ -749,6 +795,8 @@ class DeskPilotApp(ctk.CTk):
             mouse_move_enabled=m_enabled,
             use_difficulty=is_difficulty,
             random_pause_enabled=self._random_pause_enabled,
+            work_interval_minutes=(rp_work_min, rp_work_max),
+            break_duration_minutes=(rp_brk_min, rp_brk_max),
             rest_interval_lines=(rp_min_l, rp_max_l),
             rest_duration_seconds=(rp_min_s, rp_max_s)
         )
@@ -970,8 +1018,8 @@ class DeskPilotApp(ctk.CTk):
         self.opt_speed.set(speed_txt)
 
         # Update mode optionmenu
-        mode_val = new_config.get("typing", {}).get("timing_mode", "difficulty")
-        self.opt_mode.set("Difficulty-Based" if mode_val == "difficulty" else "Fixed CPS")
+        mode_val = str(new_config.get("typing", {}).get("timing_mode", "difficulty")).lower()
+        self.opt_mode.set("Difficulty" if "diff" in mode_val else "Fixed CPS")
 
         # Update editor indent
         indent_val = int(new_config.get("editor", {}).get("indent_width", 4))
@@ -1040,11 +1088,11 @@ class DeskPilotApp(ctk.CTk):
 
     def _on_mode_changed(self, mode_val: str):
         """Update typing difficulty mode and recalculate estimated time."""
-        is_diff = (mode_val == "Difficulty-Based")
+        is_diff = self._is_difficulty_mode()
         if hasattr(self, "panel_editor"):
             self.panel_editor._use_difficulty = is_diff
         self._update_estimated_time()
-        logger.info("UI", f"Typing mode set to: {mode_val}")
+        logger.info("UI", f"Typing mode set to: {'Difficulty-Based' if is_diff else 'Fixed CPS'}")
 
     def _on_mouse_move_toggled(self):
         """Compatibility hook for mouse move toggle."""
@@ -1062,13 +1110,17 @@ class DeskPilotApp(ctk.CTk):
         newlines = code.count("\n")
         lines = newlines + 1 if code else 0
         speed_cps = self._get_current_speed_cps()
-        is_difficulty = getattr(self, "opt_mode", None) is None or self.opt_mode.get() == "Difficulty-Based"
+        is_difficulty = self._is_difficulty_mode()
 
         self.panel_editor._speed_cps = speed_cps
         self.panel_editor._line_mouse_enabled = True
         self.panel_editor._use_difficulty = is_difficulty
 
         rp_cfg = self.config_data.get("random_pause", {})
+        rp_work_min = float(rp_cfg.get("work_min_minutes", 20.0))
+        rp_work_max = float(rp_cfg.get("work_max_minutes", 25.0))
+        rp_brk_min = float(rp_cfg.get("break_min_minutes", 3.0))
+        rp_brk_max = float(rp_cfg.get("break_max_minutes", 5.0))
         rest_interval = (int(rp_cfg.get("min_interval_lines", 15)), int(rp_cfg.get("max_interval_lines", 30)))
         rest_duration = (int(rp_cfg.get("min_duration_seconds", 180)), int(rp_cfg.get("max_duration_seconds", 360)))
 
@@ -1080,6 +1132,8 @@ class DeskPilotApp(ctk.CTk):
             mouse_move_enabled=True,
             use_difficulty=is_difficulty,
             random_pause_enabled=getattr(self, "_random_pause_enabled", False),
+            work_interval_minutes=(rp_work_min, rp_work_max),
+            break_duration_minutes=(rp_brk_min, rp_brk_max),
             rest_interval_lines=rest_interval,
             rest_duration_seconds=rest_duration
         )
@@ -1238,6 +1292,17 @@ class DeskPilotApp(ctk.CTk):
     # =========================================================================
     # 9. SHUTDOWN & CLEANUP
     # =========================================================================
+
+    def destroy(self):
+        self._closing = True
+        for timer_attr in ("_ui_drain_after_id", "_navbar_reflow_timer"):
+            tid = getattr(self, timer_attr, None)
+            if tid:
+                try:
+                    self.after_cancel(tid)
+                except Exception:
+                    pass
+        super().destroy()
 
     def _on_close(self):
         """Clean shutdown releasing hotkeys, workers, and hardware states."""

@@ -36,13 +36,17 @@ DEFAULT_CONFIG = {
         "smart_indent": False,        # Keep exact source code indentation; no destructive backspacing
     },
 
-    # Random Rest Pause (3–6 minutes human rest between random line intervals with auto-resume)
+    # Random Rest Breaks (e.g. Work 20–25 minutes, then take a custom 3–5 minute human break with auto-resume)
     "random_pause": {
-        "enabled": True,              # Random human rest pause option
-        "min_interval_lines": 15,     # Minimum completed lines before rest pause
-        "max_interval_lines": 30,     # Maximum completed lines before rest pause
-        "min_duration_seconds": 180,  # 3 minutes (180s)
-        "max_duration_seconds": 360,  # 6 minutes (360s)
+        "enabled": True,              # Random human rest break option
+        "work_min_minutes": 20.0,     # Work continuously for 20–25 minutes before break
+        "work_max_minutes": 25.0,     # Work continuously for 20–25 minutes before break
+        "break_min_minutes": 3.0,     # Break duration: 3–5 minutes
+        "break_max_minutes": 5.0,     # Break duration: 3–5 minutes
+        "min_interval_lines": 15,     # Backward compatibility fallback
+        "max_interval_lines": 30,     # Backward compatibility fallback
+        "min_duration_seconds": 180,  # Backward compatibility fallback
+        "max_duration_seconds": 360,  # Backward compatibility fallback
     },
 
     # Sequence timing

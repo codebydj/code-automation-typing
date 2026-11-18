@@ -251,73 +251,100 @@ class SettingsDialog(ctk.CTkToplevel):
         self.chk_rest_enabled.select() if rp_cfg.get("enabled", True) else self.chk_rest_enabled.deselect()
         self.chk_rest_enabled.pack(anchor="w", padx=12, pady=10)
 
-        # Interval settings
+        # Work Session Interval settings (Minutes)
         c2 = ctk.CTkFrame(tab, fg_color="#13141c", corner_radius=8, border_width=1, border_color="#272a38")
         c2.pack(fill="x", padx=10, pady=6)
 
         ctk.CTkLabel(
             c2,
-            text="Rest Interval (Lines between rest breaks)",
+            text="Work Duration Before Break (Minutes)",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#38bdf8"
         ).pack(anchor="w", padx=12, pady=(10, 2))
 
         ctk.CTkLabel(
             c2,
-            text="DeskPilot picks a random line count within this range before triggering each break.",
+            text="DeskPilot works continuously for a random time in this minute range before taking a break (e.g. 20–25 min).",
             font=ctk.CTkFont(size=11),
             text_color="#94a3b8"
         ).pack(anchor="w", padx=12, pady=(0, 6))
 
         i_row = ctk.CTkFrame(c2, fg_color="transparent")
-        i_row.pack(fill="x", padx=12, pady=(2, 10))
+        i_row.pack(fill="x", padx=12, pady=(2, 6))
 
-        ctk.CTkLabel(i_row, text="Min Lines:", font=ctk.CTkFont(size=11), text_color="#cbd5e1").pack(side="left")
-        self.ent_rp_min_lines = ctk.CTkEntry(i_row, width=54)
+        ctk.CTkLabel(i_row, text="From (min):", font=ctk.CTkFont(size=11), text_color="#cbd5e1").pack(side="left")
+        self.ent_work_min_m = ctk.CTkEntry(i_row, width=54)
+        self.ent_work_min_m.insert(0, str(int(rp_cfg.get("work_min_minutes", 20.0))))
+        self.ent_work_min_m.pack(side="left", padx=(4, 16))
+
+        ctk.CTkLabel(i_row, text="To (min):", font=ctk.CTkFont(size=11), text_color="#cbd5e1").pack(side="left")
+        self.ent_work_max_m = ctk.CTkEntry(i_row, width=54)
+        self.ent_work_max_m.insert(0, str(int(rp_cfg.get("work_max_minutes", 25.0))))
+        self.ent_work_max_m.pack(side="left", padx=(4, 10))
+
+        # Backward compatibility invisible widgets
+        self.ent_rp_min_lines = ctk.CTkEntry(i_row, width=1)
         self.ent_rp_min_lines.insert(0, str(rp_cfg.get("min_interval_lines", 15)))
-        self.ent_rp_min_lines.pack(side="left", padx=(4, 16))
-
-        ctk.CTkLabel(i_row, text="Max Lines:", font=ctk.CTkFont(size=11), text_color="#cbd5e1").pack(side="left")
-        self.ent_rp_max_lines = ctk.CTkEntry(i_row, width=54)
+        self.ent_rp_max_lines = ctk.CTkEntry(i_row, width=1)
         self.ent_rp_max_lines.insert(0, str(rp_cfg.get("max_interval_lines", 30)))
-        self.ent_rp_max_lines.pack(side="left", padx=(4, 10))
 
-        # Duration settings
+        w_pills = ctk.CTkFrame(c2, fg_color="transparent")
+        w_pills.pack(fill="x", padx=12, pady=(0, 10))
+        ctk.CTkLabel(w_pills, text="Presets:", font=ctk.CTkFont(size=10), text_color="#64748b").pack(side="left", padx=(0, 6))
+        for label, mn, mx in [("20–25 min (Standard)", 20, 25), ("15–20 min", 15, 20), ("25–30 min", 25, 30), ("1–2 min (Quick Test)", 1, 2)]:
+            btn = ctk.CTkButton(
+                w_pills,
+                text=label,
+                height=22,
+                font=ctk.CTkFont(size=10),
+                fg_color="#1e2230",
+                hover_color="#2d3348",
+                command=lambda mn=mn, mx=mx: self._set_work_interval(mn, mx)
+            )
+            btn.pack(side="left", padx=2)
+
+        # Duration settings (Minutes)
         c3 = ctk.CTkFrame(tab, fg_color="#13141c", corner_radius=8, border_width=1, border_color="#272a38")
         c3.pack(fill="x", padx=10, pady=6)
 
         ctk.CTkLabel(
             c3,
-            text="Rest Break Duration (Break length)",
+            text="Break Duration (Minutes)",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#38bdf8"
         ).pack(anchor="w", padx=12, pady=(10, 2))
 
         ctk.CTkLabel(
             c3,
-            text="Duration in seconds. Default is 180s (3 min) to 360s (6 min). You can skip with F7.",
+            text="How long the break lasts. Auto-resumes after countdown finishes, or press Resume (F7) anytime to skip.",
             font=ctk.CTkFont(size=11),
             text_color="#94a3b8"
         ).pack(anchor="w", padx=12, pady=(0, 6))
 
         d_row = ctk.CTkFrame(c3, fg_color="transparent")
-        d_row.pack(fill="x", padx=12, pady=(2, 10))
+        d_row.pack(fill="x", padx=12, pady=(2, 6))
 
-        ctk.CTkLabel(d_row, text="Min Duration (sec):", font=ctk.CTkFont(size=11), text_color="#cbd5e1").pack(side="left")
-        self.ent_rp_min_secs = ctk.CTkEntry(d_row, width=60)
+        ctk.CTkLabel(d_row, text="From (min):", font=ctk.CTkFont(size=11), text_color="#cbd5e1").pack(side="left")
+        self.ent_break_min_m = ctk.CTkEntry(d_row, width=54)
+        self.ent_break_min_m.insert(0, str(int(rp_cfg.get("break_min_minutes", 3.0))))
+        self.ent_break_min_m.pack(side="left", padx=(4, 16))
+
+        ctk.CTkLabel(d_row, text="To (min):", font=ctk.CTkFont(size=11), text_color="#cbd5e1").pack(side="left")
+        self.ent_break_max_m = ctk.CTkEntry(d_row, width=54)
+        self.ent_break_max_m.insert(0, str(int(rp_cfg.get("break_max_minutes", 5.0))))
+        self.ent_break_max_m.pack(side="left", padx=(4, 10))
+
+        # Backward compatibility invisible widgets
+        self.ent_rp_min_secs = ctk.CTkEntry(d_row, width=1)
         self.ent_rp_min_secs.insert(0, str(rp_cfg.get("min_duration_seconds", 180)))
-        self.ent_rp_min_secs.pack(side="left", padx=(4, 16))
-
-        ctk.CTkLabel(d_row, text="Max Duration (sec):", font=ctk.CTkFont(size=11), text_color="#cbd5e1").pack(side="left")
-        self.ent_rp_max_secs = ctk.CTkEntry(d_row, width=60)
+        self.ent_rp_max_secs = ctk.CTkEntry(d_row, width=1)
         self.ent_rp_max_secs.insert(0, str(rp_cfg.get("max_duration_seconds", 360)))
-        self.ent_rp_max_secs.pack(side="left", padx=(4, 10))
 
         # Helpful quick duration buttons
         d_pills = ctk.CTkFrame(c3, fg_color="transparent")
         d_pills.pack(fill="x", padx=12, pady=(0, 10))
         ctk.CTkLabel(d_pills, text="Presets:", font=ctk.CTkFont(size=10), text_color="#64748b").pack(side="left", padx=(0, 6))
-        for label, mn, mx in [("1–2 min", 60, 120), ("2–4 min", 120, 240), ("3–6 min (Standard)", 180, 360), ("5–10 min", 300, 600)]:
+        for label, mn, mx in [("3–5 min (Standard)", 3, 5), ("1–2 min", 1, 2), ("5–10 min", 5, 10), ("0.2–0.5 min (Test)", 0.2, 0.5)]:
             btn = ctk.CTkButton(
                 d_pills,
                 text=label,
@@ -325,15 +352,25 @@ class SettingsDialog(ctk.CTkToplevel):
                 font=ctk.CTkFont(size=10),
                 fg_color="#1e2230",
                 hover_color="#2d3348",
-                command=lambda mn=mn, mx=mx: self._set_rest_duration(mn, mx)
+                command=lambda mn=mn, mx=mx: self._set_break_duration(mn, mx)
             )
             btn.pack(side="left", padx=2)
 
-    def _set_rest_duration(self, mn: int, mx: int):
+    def _set_work_interval(self, mn: float, mx: float):
+        self.ent_work_min_m.delete(0, "end")
+        self.ent_work_min_m.insert(0, f"{mn:g}")
+        self.ent_work_max_m.delete(0, "end")
+        self.ent_work_max_m.insert(0, f"{mx:g}")
+
+    def _set_break_duration(self, mn: float, mx: float):
+        self.ent_break_min_m.delete(0, "end")
+        self.ent_break_min_m.insert(0, f"{mn:g}")
+        self.ent_break_max_m.delete(0, "end")
+        self.ent_break_max_m.insert(0, f"{mx:g}")
         self.ent_rp_min_secs.delete(0, "end")
-        self.ent_rp_min_secs.insert(0, str(mn))
+        self.ent_rp_min_secs.insert(0, str(int(mn * 60)))
         self.ent_rp_max_secs.delete(0, "end")
-        self.ent_rp_max_secs.insert(0, str(mx))
+        self.ent_rp_max_secs.insert(0, str(int(mx * 60)))
 
     # -------------------------------------------------------------------------
     # TAB 3: MOUSE MOVEMENT
@@ -421,6 +458,53 @@ class SettingsDialog(ctk.CTkToplevel):
             command=self._handle_pick_mouse_pos
         )
         self.btn_pick_pos.pack(side="left")
+
+        # Action button to test natural human mouse movement live
+        test_frame = ctk.CTkFrame(tab, fg_color="#13141c", corner_radius=8, border_width=1, border_color="#272a38")
+        test_frame.pack(fill="x", padx=10, pady=6)
+
+        ctk.CTkLabel(
+            test_frame,
+            text="Interactive Behavior Verification",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#38bdf8"
+        ).pack(anchor="w", padx=12, pady=(10, 2))
+
+        ctk.CTkLabel(
+            test_frame,
+            text="Test natural human-like mouse kinematics (smooth Bézier path, natural variation, micro-jitter) live right now.",
+            font=ctk.CTkFont(size=11),
+            text_color="#94a3b8"
+        ).pack(anchor="w", padx=12, pady=(0, 6))
+
+        t_row = ctk.CTkFrame(test_frame, fg_color="transparent")
+        t_row.pack(fill="x", padx=12, pady=(2, 10))
+
+        self.btn_test_mouse = ctk.CTkButton(
+            t_row,
+            text="▶ Test Natural Mouse Movement",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#4f46e5",
+            hover_color="#4338ca",
+            cursor="hand2",
+            height=28,
+            command=self._handle_test_mouse_move
+        )
+        self.btn_test_mouse.pack(side="left")
+
+    def _handle_test_mouse_move(self):
+        """Test the natural human-like mouse movement live."""
+        self.btn_test_mouse.configure(text="Moving mouse naturally...", state="disabled", fg_color="#7c3aed")
+        def worker():
+            from automation.mouse_controller import mouse_ctrl
+            mouse_ctrl.natural_line_mouse_move()
+            self.after(0, lambda: self.btn_test_mouse.configure(
+                text="✔ Natural Move Complete!", state="normal", fg_color="#059669"
+            ))
+            self.after(2000, lambda: self.btn_test_mouse.configure(
+                text="▶ Test Natural Mouse Movement", fg_color="#4f46e5"
+            ))
+        threading.Thread(target=worker, daemon=True).start()
 
     def _handle_pick_mouse_pos(self):
         """Countdown and capture user's mouse position."""
@@ -573,6 +657,18 @@ class SettingsDialog(ctk.CTkToplevel):
             newline_ms = 250
 
         try:
+            work_min_m = max(0.1, float(self.ent_work_min_m.get().strip()))
+            work_max_m = max(work_min_m, float(self.ent_work_max_m.get().strip()))
+        except (ValueError, AttributeError):
+            work_min_m, work_max_m = 20.0, 25.0
+
+        try:
+            break_min_m = max(0.1, float(self.ent_break_min_m.get().strip()))
+            break_max_m = max(break_min_m, float(self.ent_break_max_m.get().strip()))
+        except (ValueError, AttributeError):
+            break_min_m, break_max_m = 3.0, 5.0
+
+        try:
             rp_min_l = max(1, int(self.ent_rp_min_lines.get().strip()))
             rp_max_l = max(rp_min_l, int(self.ent_rp_max_lines.get().strip()))
         except ValueError:
@@ -582,7 +678,7 @@ class SettingsDialog(ctk.CTkToplevel):
             rp_min_s = max(10, int(self.ent_rp_min_secs.get().strip()))
             rp_max_s = max(rp_min_s, int(self.ent_rp_max_secs.get().strip()))
         except ValueError:
-            rp_min_s, rp_max_s = 180, 360
+            rp_min_s, rp_max_s = int(break_min_m * 60), int(break_max_m * 60)
 
         try:
             m_min_l = max(1, int(self.ent_mouse_min_lines.get().strip()))
@@ -620,6 +716,10 @@ class SettingsDialog(ctk.CTkToplevel):
             },
             "random_pause": {
                 "enabled": bool(self.chk_rest_enabled.get()),
+                "work_min_minutes": work_min_m,
+                "work_max_minutes": work_max_m,
+                "break_min_minutes": break_min_m,
+                "break_max_minutes": break_max_m,
                 "min_interval_lines": rp_min_l,
                 "max_interval_lines": rp_max_l,
                 "min_duration_seconds": rp_min_s,
@@ -673,6 +773,15 @@ class SettingsDialog(ctk.CTkToplevel):
         self.ent_newline.insert(0, "250")
 
         self.chk_rest_enabled.select()
+        if hasattr(self, "ent_work_min_m"):
+            self.ent_work_min_m.delete(0, "end")
+            self.ent_work_min_m.insert(0, "20")
+            self.ent_work_max_m.delete(0, "end")
+            self.ent_work_max_m.insert(0, "25")
+            self.ent_break_min_m.delete(0, "end")
+            self.ent_break_min_m.insert(0, "3")
+            self.ent_break_max_m.delete(0, "end")
+            self.ent_break_max_m.insert(0, "5")
         self.ent_rp_min_lines.delete(0, "end")
         self.ent_rp_min_lines.insert(0, "15")
         self.ent_rp_max_lines.delete(0, "end")

@@ -1,19 +1,23 @@
 {
     "typing": {
-        "speed_cps": 2.2,
+        "speed_cps": 1.5,
         "timing_mode": "difficulty",
         "use_numpad": false,
         "punct_delay": 0.15,
         "newline_delay": 0.25,
-        "base_delay": 0.45454545454545453,
+        "base_delay": 0.6666666666666666,
         "smart_indent": false
     },
     "random_pause": {
         "enabled": true,
+        "work_min_minutes": 20.0,
+        "work_max_minutes": 25.0,
+        "break_min_minutes": 3.0,
+        "break_max_minutes": 5.0,
         "min_interval_lines": 15,
         "max_interval_lines": 30,
-        "min_duration_seconds": 120,
-        "max_duration_seconds": 240
+        "min_duration_seconds": 60,
+        "max_duration_seconds": 120
     },
     "execution": {
         "default_action_pause": 0.1

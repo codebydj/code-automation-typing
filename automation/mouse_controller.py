@@ -334,6 +334,15 @@ class MouseController:
         sw, sh = self.get_screen_size()
         curr_x, curr_y = self.get_position()
 
+        # If mouse is in extreme top-left corner, re-center to avoid PyAutoGUI FailSafe corner
+        if curr_x < 50 and curr_y < 50:
+            curr_x = max(200, sw // 2)
+            curr_y = max(200, sh // 2)
+            try:
+                pyautogui.moveTo(curr_x, curr_y, _pause=False)
+            except Exception:
+                pass
+
         step = step_override or timing_controller.generate_line_mouse_step(curr_x, curr_y, sw, sh)
         target_x = int(step["target_x"])
         target_y = int(step["target_y"])

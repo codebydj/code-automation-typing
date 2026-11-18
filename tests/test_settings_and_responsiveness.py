@@ -165,6 +165,71 @@ class TestSettingsAndResponsiveness(unittest.TestCase):
 
         editor.destroy()
 
+    def test_navbar_flex_wrap_responsiveness(self):
+        """Verify top navbar flex-wraps onto multiple rows when screen width is compact."""
+        from main import DeskPilotApp
+        app = DeskPilotApp()
+        app.update()
+
+        # At wide width (1400px), toolbar is 1 row
+        app.geometry("1400x700")
+        app.update()
+        app._reflow_navbar()
+        app.update()
+        h_wide = app.toolbar.winfo_height()
+
+        # At compact width (900px), toolbar wraps onto 2 rows
+        app.geometry("900x700")
+        app.update()
+        app._reflow_navbar()
+        app.update()
+        h_compact = app.toolbar.winfo_height()
+
+        self.assertGreater(h_compact, h_wide, "Toolbar height must expand when wrapping onto multiple rows.")
+
+        # Re-expanding back to wide collapses toolbar back
+        app.geometry("1400x700")
+        app.update()
+        app._reflow_navbar()
+        app.update()
+        self.assertEqual(app.toolbar.winfo_height(), h_wide, "Toolbar must collapse back to single row on wide display.")
+        app.destroy()
+
+    def test_character_based_difficulty_mode_selection(self):
+        """Verify _is_difficulty_mode recognizes Difficulty, Difficulty-Based, and Fixed CPS."""
+        from main import DeskPilotApp
+        app = DeskPilotApp()
+        app.update()
+
+        app.opt_mode.set("Difficulty")
+        self.assertTrue(app._is_difficulty_mode(), "'Difficulty' option must activate difficulty mode.")
+
+        app.opt_mode.set("Difficulty-Based")
+        self.assertTrue(app._is_difficulty_mode(), "'Difficulty-Based' option must activate difficulty mode.")
+
+        app.opt_mode.set("Fixed CPS")
+        self.assertFalse(app._is_difficulty_mode(), "'Fixed CPS' option must deactivate difficulty mode.")
+        app.destroy()
+
+    def test_minute_based_rest_break_estimate(self):
+        """Verify rest breaks calculated from work minutes scale sequence estimate accurately."""
+        code = "print('hello')\n" * 200
+        # 1. Without rest breaks
+        sec_no_rest, _ = timing_controller.calculate_sequence_estimate(
+            text=code,
+            cps=3.0,
+            random_pause_enabled=False
+        )
+        # 2. With 20-25m work interval and 3-5m break duration
+        sec_with_rest, _ = timing_controller.calculate_sequence_estimate(
+            text=code,
+            cps=3.0,
+            random_pause_enabled=True,
+            work_interval_minutes=(0.01, 0.02),  # rapid work interval to verify addition
+            break_duration_minutes=(3.0, 5.0)
+        )
+        self.assertGreater(sec_with_rest, sec_no_rest, "Rest breaks based on working minutes must increase total estimate.")
+
 
 if __name__ == "__main__":
     unittest.main()

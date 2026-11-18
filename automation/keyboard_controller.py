@@ -205,7 +205,7 @@ class KeyboardController:
             use_difficulty = (base_delay is None) and not is_fixed_mode
 
         from automation.timing_controller import timing_controller
-        effective_cps = min(timing_controller.MAX_CONFIGURED_CPS, max(0.5, speed_cps))
+        effective_cps = max(0.2, speed_cps)
         if not use_difficulty and base_delay is None:
             base_delay = 1.0 / effective_cps
 
@@ -345,6 +345,12 @@ class KeyboardController:
                         return False
 
             logger.success("KEYBOARD", f"Completed typing {total_chars} characters.")
+            if line_mouse_callback and current_line > 1:
+                try:
+                    from automation.mouse_controller import mouse_ctrl
+                    mouse_ctrl.natural_line_mouse_move(duration=0.9)
+                except Exception:
+                    pass
             self._update_state(False, total_chars, total_chars, "", current_line, current_col, 0.0, False)
             return True
 

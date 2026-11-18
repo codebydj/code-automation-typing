@@ -508,8 +508,13 @@ class SequenceExecutor:
                         if self._stop_event.is_set() or safety.is_emergency_stopped():
                             return
                         lines_counter[0] += 1
-                        is_single_line_doc = (total_doc_lines <= 1)
-                        if lines_counter[0] >= interval[0] or (is_single_line_doc and completed_line_num == 1):
+                        # Human line mouse behavior triggers on line 1, at random intervals (2-5 lines), or single-line doc
+                        should_move = (
+                            (completed_line_num == 1) or
+                            (lines_counter[0] >= interval[0]) or
+                            (total_doc_lines <= 1)
+                        )
+                        if should_move:
                             lines_counter[0] = 0
                             interval[0] = random.randint(min_lines, max_lines) if min_lines < max_lines else min_lines
 
@@ -536,39 +541,64 @@ class SequenceExecutor:
 
                     line_mouse_cb = on_line_completed
 
-                # Random Rest Pause Hook (3 to 6 minutes human break between random line intervals with auto-resume)
+                # Random Rest Break Hook (Custom minutes work, e.g. 20–25m, then custom minutes break with auto-resume)
                 rand_pause_cfg = cfg.get("random_pause", {})
                 rest_pause_enabled = bool(action.get("random_pause_enabled", rand_pause_cfg.get("enabled", True)))
                 rest_pause_cb = None
 
                 if rest_pause_enabled:
+                    work_min_m = float(action.get("work_min_minutes", rand_pause_cfg.get("work_min_minutes", 20.0)))
+                    work_max_m = float(action.get("work_max_minutes", rand_pause_cfg.get("work_max_minutes", 25.0)))
+                    break_min_m = float(action.get("break_min_minutes", rand_pause_cfg.get("break_min_minutes", 3.0)))
+                    break_max_m = float(action.get("break_max_minutes", rand_pause_cfg.get("break_max_minutes", 5.0)))
+
+                    # Fallbacks for line/second legacy overrides
                     rp_min_lines = max(1, int(action.get("random_pause_min_lines", rand_pause_cfg.get("min_interval_lines", 15))))
                     rp_max_lines = max(rp_min_lines, int(action.get("random_pause_max_lines", rand_pause_cfg.get("max_interval_lines", 30))))
-                    rp_min_secs = max(1, int(action.get("random_pause_min_seconds", rand_pause_cfg.get("min_duration_seconds", 180))))
-                    rp_max_secs = max(rp_min_secs, int(action.get("random_pause_max_seconds", rand_pause_cfg.get("max_duration_seconds", 360))))
+                    rp_min_secs = action.get("random_pause_min_seconds")
+                    rp_max_secs = action.get("random_pause_max_seconds")
                     target_win = action.get("target_window", None)
 
+                    has_explicit_lines = ("random_pause_min_lines" in action)
+                    has_explicit_minutes = ("work_min_minutes" in action)
+                    if has_explicit_lines and not has_explicit_minutes:
+                        use_minutes_mode = False
+                    elif has_explicit_minutes:
+                        use_minutes_mode = True
+                    else:
+                        use_minutes_mode = bool("work_min_minutes" in rand_pause_cfg)
+                    work_start_time = [time.monotonic()]
+                    next_work_target_sec = [random.uniform(work_min_m * 60.0, work_max_m * 60.0)]
                     rp_lines_counter = [0]
                     rp_interval = [random.randint(rp_min_lines, rp_max_lines)]
 
-                    def on_rest_pause_completed(completed_line_num: int):
+                    def on_rest_pause_completed(completed_line_num: int, elapsed_work_sec: Optional[float] = None):
                         if self._stop_event.is_set() or safety.is_emergency_stopped():
                             return
-                        rp_lines_counter[0] += 1
-                        if rp_lines_counter[0] >= rp_interval[0]:
-                            rp_lines_counter[0] = 0
-                            rp_interval[0] = random.randint(rp_min_lines, rp_max_lines)
 
+                        if use_minutes_mode:
+                            work_dur = time.monotonic() - work_start_time[0]
+                            should_pause = (work_dur >= next_work_target_sec[0])
+                        else:
+                            rp_lines_counter[0] += 1
+                            should_pause = (rp_lines_counter[0] >= rp_interval[0])
+
+                        if should_pause:
                             # 1. Release all hardware keys & mouse states completely
                             safety.reset_hardware_state()
 
-                            # 2. Determine random pause duration (3 to 6 minutes: 180s - 360s)
-                            pause_duration = random.randint(rp_min_secs, rp_max_secs)
+                            # 2. Determine random pause duration (custom minutes or seconds)
+                            if rp_min_secs is not None and rp_max_secs is not None:
+                                pause_duration = random.randint(int(rp_min_secs), int(rp_max_secs))
+                            else:
+                                pause_duration = int(random.uniform(break_min_m * 60.0, break_max_m * 60.0))
+
+                            work_display = f"{int((time.monotonic() - work_start_time[0]) // 60)}m" if use_minutes_mode else f"Line {completed_line_num}"
                             logger.action(
                                 "SEQUENCE",
-                                f"Random Rest Pause triggered after Line {completed_line_num} "
+                                f"Random Rest Break triggered after {work_display} "
                                 f"for {pause_duration}s ({pause_duration // 60}m {pause_duration % 60}s). "
-                                f"All hardware released; auto-resuming when timer reaches 0."
+                                f"All hardware released; auto-resuming when timer reaches 0 or on Resume click."
                             )
 
                             self._skip_rest_event.clear()
@@ -584,7 +614,7 @@ class SequenceExecutor:
 
                                     mm = remaining // 60
                                     ss = remaining % 60
-                                    msg = f"Rest Pause: auto-resuming in {mm:02d}:{ss:02d} (Line {completed_line_num})"
+                                    msg = f"Rest Break: auto-resuming in {mm:02d}:{ss:02d} (Worked {work_display})"
                                     if self.on_keyboard_action:
                                         self.on_keyboard_action(msg)
                                     if self.on_rest_pause_countdown:
@@ -601,8 +631,13 @@ class SequenceExecutor:
                             if self._stop_event.is_set() or safety.is_emergency_stopped():
                                 return
 
-                            # 3. Auto-resume: transition back to RUNNING and re-focus target window
-                            logger.info("SEQUENCE", f"Rest Pause finished. Auto-resuming typing at Line {completed_line_num + 1}...")
+                            # 3. Auto-resume: reset work timer, transition back to RUNNING and re-focus target window
+                            work_start_time[0] = time.monotonic()
+                            next_work_target_sec[0] = random.uniform(work_min_m * 60.0, work_max_m * 60.0)
+                            rp_lines_counter[0] = 0
+                            rp_interval[0] = random.randint(rp_min_lines, rp_max_lines)
+
+                            logger.info("SEQUENCE", f"Rest Break finished. Auto-resuming typing at Line {completed_line_num + 1}...")
                             self._set_state(ExecutionState.RUNNING)
                             if target_win:
                                 self.focus_window_by_title(target_win)

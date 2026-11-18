@@ -189,7 +189,7 @@ class TimingController:
         """
         effective_cps = max(
             self.MIN_CONFIGURED_CPS,
-            min(self.MAX_CONFIGURED_CPS, float(cps if cps is not None else self.current_cps))
+            float(cps if cps is not None else self.current_cps)
         )
         base_delay = 1.0 / effective_cps
 
@@ -337,13 +337,15 @@ class TimingController:
         use_difficulty: bool = True,
         random_pause_enabled: bool = False,
         rest_interval_lines: Tuple[int, int] = (15, 30),
-        rest_duration_seconds: Tuple[int, int] = (180, 360)
+        rest_duration_seconds: Tuple[int, int] = (180, 360),
+        work_interval_minutes: Optional[Tuple[float, float]] = None,
+        break_duration_minutes: Optional[Tuple[float, float]] = None
     ) -> Tuple[int, str]:
         """
         Calculates exact estimated completion time for text payload by summing
         character delays (either dynamic character difficulty or fixed CPS),
         punctuation pauses, word pauses, newline pauses, and mouse movement durations.
-        Supports custom speed CPS and custom rest break intervals & durations.
+        Supports custom speed CPS, work duration in minutes (e.g. 20-25m), and custom break lengths.
         """
         if not text:
             return 0, "00:00:00"
@@ -363,7 +365,9 @@ class TimingController:
             use_difficulty,
             random_pause_enabled,
             rest_interval_lines,
-            rest_duration_seconds
+            rest_duration_seconds,
+            work_interval_minutes,
+            break_duration_minutes
         )
         if cache_key in self._estimate_cache:
             return self._estimate_cache[cache_key]
@@ -407,19 +411,27 @@ class TimingController:
             total_seconds += min(self.MAX_CHARACTER_DELAY, max(self.MIN_CHARACTER_DELAY, char_delay))
             prev_ch = ch
 
-        # Add mouse movement time: triggers every random 2-5 lines (average ~3.5 lines)
+        # Add mouse movement time: triggers after line 1 and every random 2-5 lines (average ~3.5 lines)
         if mouse_move_enabled and newlines_count > 0:
             # Average mouse cycle: ~2.0s duration + 0.30s pre-pause + 0.38s post-pause = ~2.68s
             num_mouse_moves = max(1, int(round(newlines_count / 3.5)))
             total_seconds += num_mouse_moves * 2.68
 
-        # Add random rest pause time based on custom rest interval and duration
-        min_rest_line = rest_interval_lines[0]
-        avg_rest_interval = max(1.0, (rest_interval_lines[0] + rest_interval_lines[1]) / 2.0)
-        avg_rest_duration = max(1.0, (rest_duration_seconds[0] + rest_duration_seconds[1]) / 2.0)
-        if random_pause_enabled and newlines_count >= min_rest_line:
-            num_rest_pauses = max(1, int(newlines_count / avg_rest_interval))
-            total_seconds += num_rest_pauses * avg_rest_duration
+        # Add random rest pause time based on work time (minutes) or line interval
+        if random_pause_enabled:
+            if work_interval_minutes is not None and break_duration_minutes is not None:
+                avg_work_sec = max(60.0, ((work_interval_minutes[0] + work_interval_minutes[1]) / 2.0) * 60.0)
+                avg_break_sec = max(1.0, ((break_duration_minutes[0] + break_duration_minutes[1]) / 2.0) * 60.0)
+                if total_seconds >= avg_work_sec:
+                    num_breaks = max(1, int(total_seconds / avg_work_sec))
+                    total_seconds += num_breaks * avg_break_sec
+            else:
+                min_rest_line = rest_interval_lines[0]
+                avg_rest_interval = max(1.0, (rest_interval_lines[0] + rest_interval_lines[1]) / 2.0)
+                avg_rest_duration = max(1.0, (rest_duration_seconds[0] + rest_duration_seconds[1]) / 2.0)
+                if newlines_count >= min_rest_line:
+                    num_rest_pauses = max(1, int(newlines_count / avg_rest_interval))
+                    total_seconds += num_rest_pauses * avg_rest_duration
 
         total_secs = int(round(total_seconds))
         h = total_secs // 3600
