@@ -656,13 +656,15 @@ class IDECodeEditor(ctk.CTkFrame):
         countdown = int(target_cfg.get("countdown_seconds", getattr(self, "_countdown_seconds", 3)))
         mouse_enabled = bool(target_cfg.get("line_mouse_enabled", getattr(self, "_line_mouse_enabled", True)))
         use_diff = getattr(self, "_use_difficulty", True)
+        rand_pause_enabled = bool(target_cfg.get("random_pause_enabled", getattr(self, "_random_pause_enabled", True)))
 
         total_seconds, time_str = timing_controller.calculate_sequence_estimate(
             text=code,
             cps=speed_cps,
             countdown_seconds=countdown,
             mouse_move_enabled=mouse_enabled,
-            use_difficulty=use_diff
+            use_difficulty=use_diff,
+            random_pause_enabled=rand_pause_enabled
         )
 
         if hasattr(self, "lbl_est_time"):

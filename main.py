@@ -79,6 +79,9 @@ class DeskPilotApp(ctk.CTk):
         self._total_chars: int = 0
         self._total_lines: int = 1
 
+        # Random rest pause option (3–6 minutes human break)
+        self._random_pause_enabled: bool = bool(self.config_data.get("random_pause", {}).get("enabled", True))
+
         # Seed sample sequences if needed
         create_sample_sequences_if_empty()
 
@@ -306,6 +309,24 @@ class DeskPilotApp(ctk.CTk):
         )
         self.btn_stop.pack(side="left", padx=2)
 
+        # Separator
+        ctk.CTkFrame(self.toolbar, width=1, height=22, fg_color="#262a3b").pack(side="left", padx=4)
+
+        # Random Rest Pause (3–6 minutes human break) Toggle
+        self.btn_rest_pause = ctk.CTkButton(
+            self.toolbar,
+            text="☕ Rest: ON" if self._random_pause_enabled else "☕ Rest: OFF",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            width=86,
+            height=28,
+            fg_color="#065f46" if self._random_pause_enabled else "#1f2937",
+            hover_color="#047857" if self._random_pause_enabled else "#374151",
+            text_color="#6ee7b7" if self._random_pause_enabled else "#9ca3af",
+            corner_radius=5,
+            command=self._handle_toggle_rest_pause
+        )
+        self.btn_rest_pause.pack(side="left", padx=2)
+
         # Right side: Simple Target selector, Mode selector, and Speed selector
         right_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
         right_deck.pack(side="right", padx=(4, 10), pady=6)
@@ -464,7 +485,8 @@ class DeskPilotApp(ctk.CTk):
                     cps=speed_cps,
                     countdown_seconds=0,
                     mouse_move_enabled=True,
-                    use_difficulty=is_difficulty
+                    use_difficulty=is_difficulty,
+                    random_pause_enabled=getattr(self, "_random_pause_enabled", False)
                 )
 
                 # Calculate elapsed time
@@ -488,6 +510,19 @@ class DeskPilotApp(ctk.CTk):
                     text=f"● {act_text}",
                     text_color="#c084fc"
                 ))
+            elif act_text and "Rest Pause" in act_text:
+                self._ui_actions.put(lambda: self.lbl_sb_status.configure(
+                    text=f"● {act_text} • [F7 to Skip]",
+                    text_color="#f59e0b"
+                ))
+
+        def on_rest_pause_countdown(rem_secs, tot_secs):
+            mm = rem_secs // 60
+            ss = rem_secs % 60
+            self._ui_actions.put(lambda: self.lbl_sb_status.configure(
+                text=f"● Rest Pause: auto-resuming in {mm:02d}:{ss:02d}... [F7 to Skip]",
+                text_color="#f59e0b"
+            ))
 
         executor.on_status_change = on_state
         executor.on_countdown = on_countdown
@@ -496,6 +531,7 @@ class DeskPilotApp(ctk.CTk):
         executor.on_action_start = on_action_start
         executor.on_completed = on_completed
         executor.on_keyboard_action = on_kb_action
+        executor.on_rest_pause_countdown = on_rest_pause_countdown
 
     def _update_live_telemetry(self, line: int, char_idx: int, total_chars: int, pct: float, rem_time: str, el_time: str, ch: str, col: int):
         """Update live status bar numbers and editor pointer."""
@@ -511,20 +547,30 @@ class DeskPilotApp(ctk.CTk):
         if state == ExecutionState.RUNNING:
             self.btn_start.configure(state="disabled", fg_color="#1f2937")
             self.btn_pause.configure(state="normal", fg_color="#b45309")
-            self.btn_resume.configure(state="disabled", fg_color="#1e3a8a")
+            self.btn_resume.configure(state="disabled", text="⏯ Resume (F7)", fg_color="#1e3a8a")
             self.btn_stop.configure(state="normal", fg_color="#b91c1c", hover_color="#dc2626")
             self.lbl_sb_status.configure(text="● Typing...", text_color="#38bdf8")
+
+        elif state == ExecutionState.REST_PAUSED:
+            self.btn_start.configure(state="disabled", fg_color="#1f2937")
+            self.btn_pause.configure(state="disabled", fg_color="#b45309")
+            self.btn_resume.configure(state="normal", text="⏯ Skip Rest (F7)", fg_color="#2563eb", hover_color="#1d4ed8")
+            self.btn_stop.configure(state="normal", fg_color="#b91c1c", hover_color="#dc2626")
+            self.lbl_sb_status.configure(
+                text="● Rest Pause: auto-resuming in 3–6 min... [F7 to Skip]",
+                text_color="#f59e0b"
+            )
 
         elif state == ExecutionState.COUNTDOWN:
             self.btn_start.configure(state="disabled", fg_color="#1f2937")
             self.btn_pause.configure(state="disabled", fg_color="#b45309")
-            self.btn_resume.configure(state="disabled", fg_color="#1e3a8a")
+            self.btn_resume.configure(state="disabled", text="⏯ Resume (F7)", fg_color="#1e3a8a")
             self.btn_stop.configure(state="normal", fg_color="#b91c1c")
 
         elif state == ExecutionState.PAUSED:
             self.btn_start.configure(state="disabled", fg_color="#1f2937")
             self.btn_pause.configure(state="disabled", fg_color="#b45309")
-            self.btn_resume.configure(state="normal", fg_color="#2563eb")
+            self.btn_resume.configure(state="normal", text="⏯ Resume (F7)", fg_color="#2563eb")
             self.btn_stop.configure(state="normal", fg_color="#b91c1c")
             self.lbl_sb_status.configure(
                 text=f"● Automation Paused at Line {self._last_typed_line}",
@@ -534,7 +580,7 @@ class DeskPilotApp(ctk.CTk):
         else:  # IDLE, STOPPED, COMPLETED, EMERGENCY_STOPPED
             self.btn_start.configure(state="normal", fg_color="#059669")
             self.btn_pause.configure(state="disabled", fg_color="#374151")
-            self.btn_resume.configure(state="disabled", fg_color="#374151")
+            self.btn_resume.configure(state="disabled", text="⏯ Resume (F7)", fg_color="#374151")
             self.btn_stop.configure(state="disabled", fg_color="#374151")
 
             self.panel_editor.clear_typing_pointer()
@@ -620,6 +666,12 @@ class DeskPilotApp(ctk.CTk):
             "min_lines": 2,
             "max_lines": 5,
             "natural_line_mouse": True,
+            "random_pause_enabled": self._random_pause_enabled,
+            "random_pause_min_lines": 15,
+            "random_pause_max_lines": 30,
+            "random_pause_min_seconds": 180,
+            "random_pause_max_seconds": 360,
+            "smart_indent": False,
             "target_window": target_app,
             "description": f"Type code ({'Difficulty-Based' if is_difficulty else 'Fixed CPS'} at {speed_cps:.1f} CPS, {len(code)} chars)"
         })
@@ -637,8 +689,32 @@ class DeskPilotApp(ctk.CTk):
         executor.pause()
 
     def _handle_resume_automation(self):
-        """Resume typing from the exact paused character position."""
-        executor.resume()
+        """Resume typing from the exact paused character position or skip rest pause."""
+        if executor.get_state() == ExecutionState.REST_PAUSED:
+            executor.skip_rest_pause()
+        else:
+            executor.resume()
+
+    def _handle_toggle_rest_pause(self):
+        """Toggle random 3–6 minute rest pause on or off."""
+        self._random_pause_enabled = not self._random_pause_enabled
+        if self._random_pause_enabled:
+            self.btn_rest_pause.configure(
+                text="☕ Rest: ON",
+                fg_color="#065f46",
+                hover_color="#047857",
+                text_color="#6ee7b7"
+            )
+            logger.info("SYSTEM", "Random Rest Pause enabled (3–6 minute human breaks between random 15–30 lines).")
+        else:
+            self.btn_rest_pause.configure(
+                text="☕ Rest: OFF",
+                fg_color="#1f2937",
+                hover_color="#374151",
+                text_color="#9ca3af"
+            )
+            logger.info("SYSTEM", "Random Rest Pause disabled.")
+        self._update_estimated_time()
 
     def _handle_stop_automation(self):
         """Cancel automation and release all held hardware keys/buttons."""
@@ -803,7 +879,8 @@ class DeskPilotApp(ctk.CTk):
             cps=speed_cps,
             countdown_seconds=3,
             mouse_move_enabled=True,
-            use_difficulty=is_difficulty
+            use_difficulty=is_difficulty,
+            random_pause_enabled=getattr(self, "_random_pause_enabled", False)
         )
         self.btn_est_time.configure(text=f"⏱ Est. Time: {est_time_str}")
 

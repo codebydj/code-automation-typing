@@ -74,6 +74,7 @@ class KeyboardController:
         try:
             if ch == "\n":
                 pyautogui.press("enter")
+                time.sleep(0.08)
             elif ch == "\t":
                 if tab_width is None:
                     pyautogui.press("tab")
@@ -133,36 +134,12 @@ class KeyboardController:
             return False
 
     def _clear_current_line_auto_indent(self) -> bool:
-        """Remove IDE-inserted indentation without selecting prior lines."""
-        original_clipboard = pyperclip.paste()
-        marker = f"__deskpilot_indent_{time.monotonic_ns()}__"
-        try:
-            pyperclip.copy(marker)
-            pyautogui.hotkey("shift", "home")
-            pyautogui.hotkey("ctrl", "c")
-            selected = pyperclip.paste()
-            if selected != marker and selected and all(char in " \t" for char in selected):
-                pyautogui.press("backspace")
-            else:
-                pyautogui.press("right")
-
-            auto_indent = 0
-            while True:
-                pyautogui.hotkey("shift", "left")
-                pyautogui.hotkey("ctrl", "c")
-                selected = pyperclip.paste()
-                if selected == marker or not selected or not all(char in " \t" for char in selected):
-                    pyautogui.press("right")
-                    break
-                auto_indent = len(selected)
-
-            if auto_indent:
-                for _ in range(auto_indent):
-                    pyautogui.hotkey("shift", "left")
-                pyautogui.press("backspace")
-            return True
-        finally:
-            pyperclip.copy(original_clipboard)
+        """
+        Preserve exact source code formatting.
+        Destructive backspacing, text selection, and clipboard hacks are disabled
+        to prevent combined line errors, staircase alignment drift, and dropped characters.
+        """
+        return True
 
     @serialized_input
     def type_text(
@@ -179,6 +156,7 @@ class KeyboardController:
         newline_delay: float = 0.250,
         use_numpad: bool = False,
         line_mouse_callback: Optional[Callable[[int], bool]] = None,
+        rest_pause_callback: Optional[Callable[[int], bool]] = None,
         start_index: int = 0,
         cursor_movement_on_newline: bool = False,
         smart_indent: bool = False,
@@ -276,10 +254,8 @@ class KeyboardController:
 
                 typed_count += 1
                 
-                # Update line and column; cursor movement is a separate sequence action.
+                # Update line and column; preserve exact line integrity without destructive backspacing
                 if ch == "\n":
-                    if smart_indent:
-                        self._clear_current_line_auto_indent()
                     current_line += 1
                     current_col = 1
 
@@ -290,6 +266,17 @@ class KeyboardController:
                             line_mouse_callback(current_line - 1)
                         except Exception as cb_err:
                             logger.warning("KEYBOARD", f"Line mouse callback error: {cb_err}")
+                        if (stop_event and stop_event.is_set()) or safety.is_emergency_stopped():
+                            return False
+                        next_char_deadline = time.monotonic()
+
+                    # Trigger random human rest pause (3–6 minutes) if configured and due
+                    if rest_pause_callback:
+                        safety.reset_hardware_state()
+                        try:
+                            rest_pause_callback(current_line - 1)
+                        except Exception as rp_err:
+                            logger.warning("KEYBOARD", f"Rest pause callback error: {rp_err}")
                         if (stop_event and stop_event.is_set()) or safety.is_emergency_stopped():
                             return False
                         next_char_deadline = time.monotonic()

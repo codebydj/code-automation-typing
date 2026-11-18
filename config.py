@@ -33,7 +33,16 @@ DEFAULT_CONFIG = {
         "punct_delay": 0.150,         # Pause after punctuation (comma, semicolon, period) in variable mode
         "newline_delay": 0.250,       # Pause at line endings in variable mode
         "base_delay": 0.333,          # Average delay between characters in seconds (~3 chars/sec)
-        "smart_indent": True,         # Avoid duplicate indentation in IDEs that auto-indent
+        "smart_indent": False,        # Keep exact source code indentation; no destructive backspacing
+    },
+
+    # Random Rest Pause (3–6 minutes human rest between random line intervals with auto-resume)
+    "random_pause": {
+        "enabled": True,              # Random human rest pause option
+        "min_interval_lines": 15,     # Minimum completed lines before rest pause
+        "max_interval_lines": 30,     # Maximum completed lines before rest pause
+        "min_duration_seconds": 180,  # 3 minutes (180s)
+        "max_duration_seconds": 360,  # 6 minutes (360s)
     },
 
     # Sequence timing

@@ -237,73 +237,63 @@ class TestInputCoordination(unittest.TestCase):
         run_input.assert_not_called()
         self.assertTrue(status_messages)
 
-    def test_smart_indent_cleanup_never_deletes_a_line_break(self):
-        with patch("automation.keyboard_controller.time.monotonic_ns", return_value=123), \
-             patch(
-            "automation.keyboard_controller.pyperclip.paste",
-            side_effect=("existing clipboard", "__deskpilot_indent_123__", "\n")
-        ), patch("automation.keyboard_controller.pyperclip.copy"), \
-             patch("automation.keyboard_controller.pyautogui.press") as press, \
+    def test_typing_preserves_all_line_breaks_and_exact_lines(self):
+        """Verify that multi-line text maintains exact line counts and newlines are never swallowed."""
+        sample_code = "line1 = 1\n\nline3 = 3\n    indented = 4\n"
+        typed_chars = []
+        with patch.object(keyboard_ctrl, "type_character", side_effect=lambda ch, **kw: typed_chars.append(ch) or True):
+            success = keyboard_ctrl.type_text(sample_code, base_delay=0)
+            self.assertTrue(success)
+        self.assertEqual("".join(typed_chars), sample_code)
+        self.assertEqual("".join(typed_chars).count("\n"), sample_code.count("\n"))
+
+    def test_typing_never_emits_destructive_backspace_or_selection(self):
+        """Verify typing pure code never executes backspace, ctrl+c, or shift+left arrow commands."""
+        sample_code = "def foo():\n    return 42\n"
+        with patch("automation.keyboard_controller.pyautogui.press") as press, \
              patch("automation.keyboard_controller.pyautogui.hotkey") as hotkey:
-            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent())
-        self.assertFalse(any(call.args == ("backspace",) for call in press.call_args_list))
-        hotkey.assert_any_call("shift", "home")
+            success = keyboard_ctrl.type_text(sample_code, base_delay=0)
+            self.assertTrue(success)
+            self.assertFalse(any(call.args == ("backspace",) for call in press.call_args_list))
+            self.assertFalse(any(call.args == ("ctrl", "c") for call in hotkey.call_args_list))
+            self.assertFalse(any("shift" in call.args and "left" in call.args for call in hotkey.call_args_list))
 
-    def test_smart_indent_cleanup_removes_editor_inserted_spaces(self):
-        with patch(
-            "automation.keyboard_controller.pyperclip.paste",
-            side_effect=("existing clipboard", "    ", "\n")
-        ), patch("automation.keyboard_controller.pyperclip.copy"), \
-             patch("automation.keyboard_controller.pyautogui.press") as press, \
-             patch("automation.keyboard_controller.pyautogui.hotkey") as hotkey:
-            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent())
-        press.assert_any_call("backspace")
-        hotkey.assert_any_call("shift", "home")
-
-    def test_smart_indent_cleanup_removes_actual_indent_when_source_indent_is_zero(self):
-        with patch(
-            "automation.keyboard_controller.pyperclip.paste",
-            side_effect=("existing clipboard", "    ", "\n    ")
-        ), patch("automation.keyboard_controller.pyperclip.copy"), \
-             patch("automation.keyboard_controller.pyautogui.press") as press, \
-             patch("automation.keyboard_controller.pyautogui.hotkey") as hotkey:
-            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent())
-        press.assert_any_call("backspace")
-        hotkey.assert_any_call("shift", "home")
-
-    def test_smart_indent_cleanup_removes_actual_indent_when_source_indent_differs(self):
-        with patch("automation.keyboard_controller.time.monotonic_ns", return_value=123), \
-             patch(
-            "automation.keyboard_controller.pyperclip.paste",
-            side_effect=("existing clipboard", "__deskpilot_indent_123__", " ", "  ", "   ", "    ", "\n    ")
-        ), patch("automation.keyboard_controller.pyperclip.copy"), \
-             patch("automation.keyboard_controller.pyautogui.press") as press, \
-             patch("automation.keyboard_controller.pyautogui.hotkey") as hotkey:
-            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent())
-        press.assert_any_call("backspace")
-        self.assertEqual(
-            sum(call.args == ("shift", "left") for call in hotkey.call_args_list),
-            9
-        )
-
-    def test_smart_indent_cleanup_runs_after_newline_with_no_source_indent(self):
-        with patch.object(keyboard_ctrl, "type_character", return_value=True), \
-             patch.object(keyboard_ctrl, "_clear_current_line_auto_indent") as clear_indent:
-            self.assertTrue(keyboard_ctrl.type_text("\n", base_delay=0, smart_indent=True))
-        clear_indent.assert_called_once_with()
-
-    def test_sequence_executor_uses_configured_smart_indent_by_default(self):
+    def test_rest_pause_trigger_and_auto_resume(self):
+        """Verify that 3-6 minute Rest Pause triggers at line intervals, enters REST_PAUSED, and auto-resumes."""
         executor = SequenceExecutor()
-        with patch(
-            "automation.sequence_executor.load_config",
-            return_value={"typing": {"smart_indent": True}, "mouse": {"line_interaction": {"enabled": False}}}
-        ), patch.object(keyboard_ctrl, "type_text", return_value=True) as type_text:
-            executor._execute_single_action({
-                "type": "type_text",
-                "text": "line\n",
-                "line_mouse_enabled": False
-            })
-        self.assertTrue(type_text.call_args.kwargs["smart_indent"])
+        states_seen = []
+        executor.on_status_change = lambda st: states_seen.append(st)
+
+        # Trigger after 2 lines, duration 1s for fast test
+        action = {
+            "type": "type_code",
+            "text": "line1\nline2\nline3\n",
+            "speed": 0.001,
+            "line_mouse_enabled": False,
+            "random_pause_enabled": True,
+            "random_pause_min_lines": 2,
+            "random_pause_max_lines": 2,
+            "random_pause_min_seconds": 1,
+            "random_pause_max_seconds": 1,
+        }
+        with patch.object(keyboard_ctrl, "type_character", return_value=True), \
+             patch("automation.safety.safety.interruptible_sleep", return_value=True):
+            success = executor._execute_single_action(action)
+            self.assertTrue(success)
+        self.assertIn("REST_PAUSED", states_seen)
+
+    def test_rest_pause_can_be_skipped_by_user(self):
+        """Verify that skip_rest_pause and resume immediately interrupt active rest pause."""
+        executor = SequenceExecutor()
+        executor._set_state(ExecutionState.REST_PAUSED)
+        self.assertTrue(executor.skip_rest_pause())
+        self.assertTrue(executor._skip_rest_event.is_set())
+
+        # Test resume() also skips REST_PAUSED
+        executor._skip_rest_event.clear()
+        executor._set_state(ExecutionState.REST_PAUSED)
+        self.assertTrue(executor.resume())
+        self.assertTrue(executor._skip_rest_event.is_set())
 
     def test_vs_code_target_matches_full_window_title(self):
         class FakeWindow:

@@ -6,7 +6,14 @@
         "punct_delay": 0.15,
         "newline_delay": 0.25,
         "base_delay": 0.3333333333333333,
-        "smart_indent": true
+        "smart_indent": false
+    },
+    "random_pause": {
+        "enabled": true,
+        "min_interval_lines": 15,
+        "max_interval_lines": 30,
+        "min_duration_seconds": 180,
+        "max_duration_seconds": 360
     },
     "execution": {
         "default_action_pause": 0.1

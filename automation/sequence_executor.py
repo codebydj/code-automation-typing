@@ -6,6 +6,7 @@ Features character-level pause/resume granularity and comprehensive action dispa
 
 import time
 import math
+import random
 import threading
 from enum import Enum
 from typing import List, Dict, Any, Optional, Callable
@@ -21,6 +22,7 @@ class ExecutionState(str, Enum):
     COUNTDOWN = "COUNTDOWN"
     RUNNING = "RUNNING"
     PAUSED = "PAUSED"
+    REST_PAUSED = "REST_PAUSED"
     STOPPED = "STOPPED"
     EMERGENCY_STOPPED = "EMERGENCY_STOPPED"
     COMPLETED = "COMPLETED"
@@ -43,6 +45,7 @@ class SequenceExecutor:
         self._pause_event = threading.Event()
         self._pause_event.set()  # Set means NOT paused
         self._stop_event = threading.Event()
+        self._skip_rest_event = threading.Event()
         self._lock = threading.RLock()
 
         # Listen for safety emergency stops
@@ -56,6 +59,7 @@ class SequenceExecutor:
         self.on_keyboard_action: Optional[Callable[[str], None]] = None
         self.on_typing_telemetry: Optional[Callable[[Dict[str, Any]], None]] = None
         self.on_countdown: Optional[Callable[[int], None]] = None
+        self.on_rest_pause_countdown: Optional[Callable[[int, int], None]] = None
         self.on_completed: Optional[Callable[[int, float], None]] = None
 
     @property
@@ -89,6 +93,7 @@ class SequenceExecutor:
         """Handler called when global emergency stop is triggered."""
         self._stop_event.set()
         self._pause_event.set()
+        self._skip_rest_event.set()
         self._set_state(ExecutionState.EMERGENCY_STOPPED)
 
     def start(self, actions: List[Dict[str, Any]], countdown_seconds: int = 3, loop: bool = False) -> bool:
@@ -110,6 +115,7 @@ class SequenceExecutor:
             self._loop_enabled = loop
             self._loop_count = 0
             self._stop_event.clear()
+            self._skip_rest_event.clear()
             self._pause_event.set()
 
             self._thread = threading.Thread(
@@ -128,7 +134,8 @@ class SequenceExecutor:
         return bool(self._thread and self._thread.is_alive()) or self._state in (
             ExecutionState.RUNNING,
             ExecutionState.COUNTDOWN,
-            ExecutionState.PAUSED
+            ExecutionState.PAUSED,
+            ExecutionState.REST_PAUSED
         )
 
     def pause(self) -> bool:
@@ -141,9 +148,21 @@ class SequenceExecutor:
         logger.info("SEQUENCE", f"Automation paused at step {self._current_index + 1}/{self._total_actions}.")
         return True
 
-    def resume(self) -> bool:
-        """Resume execution from the exact paused step or character."""
+    def skip_rest_pause(self) -> bool:
+        """Skip active 3–6 minute rest pause and immediately resume typing."""
         with self._lock:
+            if self._state != ExecutionState.REST_PAUSED:
+                return False
+            self._skip_rest_event.set()
+        logger.info("SEQUENCE", "Rest pause skipped by user; auto-resuming typing immediately.")
+        return True
+
+    def resume(self) -> bool:
+        """Resume execution from the exact paused step, character, or rest pause."""
+        with self._lock:
+            if self._state == ExecutionState.REST_PAUSED:
+                self._skip_rest_event.set()
+                return True
             if self._state != ExecutionState.PAUSED:
                 return False
             self._set_state(ExecutionState.RUNNING)
@@ -159,6 +178,7 @@ class SequenceExecutor:
             logger.info("SEQUENCE", "Stop requested by user.")
             self._stop_event.set()
             self._pause_event.set()
+            self._skip_rest_event.set()
             self._set_state(ExecutionState.STOPPED)
         safety.reset_hardware_state()
         return True
@@ -169,6 +189,7 @@ class SequenceExecutor:
         with self._lock:
             self._stop_event.set()
             self._pause_event.set()
+            self._skip_rest_event.set()
             self._set_state(ExecutionState.EMERGENCY_STOPPED)
 
     def run_single_action(self, action: Dict[str, Any]) -> bool:
@@ -479,7 +500,6 @@ class SequenceExecutor:
                     m_profile = str(action.get("movement_profile", mouse_cfg.get("movement_profile", "curved")))
                     target_win = action.get("target_window", None)
 
-                    import random
                     lines_counter = [0]
                     interval = [random.randint(min_lines, max_lines) if min_lines < max_lines else min_lines]
                     total_doc_lines = text.count("\n") + 1
@@ -516,6 +536,80 @@ class SequenceExecutor:
 
                     line_mouse_cb = on_line_completed
 
+                # Random Rest Pause Hook (3 to 6 minutes human break between random line intervals with auto-resume)
+                rand_pause_cfg = cfg.get("random_pause", {})
+                rest_pause_enabled = bool(action.get("random_pause_enabled", rand_pause_cfg.get("enabled", True)))
+                rest_pause_cb = None
+
+                if rest_pause_enabled:
+                    rp_min_lines = max(1, int(action.get("random_pause_min_lines", rand_pause_cfg.get("min_interval_lines", 15))))
+                    rp_max_lines = max(rp_min_lines, int(action.get("random_pause_max_lines", rand_pause_cfg.get("max_interval_lines", 30))))
+                    rp_min_secs = max(1, int(action.get("random_pause_min_seconds", rand_pause_cfg.get("min_duration_seconds", 180))))
+                    rp_max_secs = max(rp_min_secs, int(action.get("random_pause_max_seconds", rand_pause_cfg.get("max_duration_seconds", 360))))
+                    target_win = action.get("target_window", None)
+
+                    rp_lines_counter = [0]
+                    rp_interval = [random.randint(rp_min_lines, rp_max_lines)]
+
+                    def on_rest_pause_completed(completed_line_num: int):
+                        if self._stop_event.is_set() or safety.is_emergency_stopped():
+                            return
+                        rp_lines_counter[0] += 1
+                        if rp_lines_counter[0] >= rp_interval[0]:
+                            rp_lines_counter[0] = 0
+                            rp_interval[0] = random.randint(rp_min_lines, rp_max_lines)
+
+                            # 1. Release all hardware keys & mouse states completely
+                            safety.reset_hardware_state()
+
+                            # 2. Determine random pause duration (3 to 6 minutes: 180s - 360s)
+                            pause_duration = random.randint(rp_min_secs, rp_max_secs)
+                            logger.action(
+                                "SEQUENCE",
+                                f"Random Rest Pause triggered after Line {completed_line_num} "
+                                f"for {pause_duration}s ({pause_duration // 60}m {pause_duration % 60}s). "
+                                f"All hardware released; auto-resuming when timer reaches 0."
+                            )
+
+                            self._skip_rest_event.clear()
+                            self._set_state(ExecutionState.REST_PAUSED)
+
+                            try:
+                                for remaining in range(pause_duration, 0, -1):
+                                    if self._stop_event.is_set() or safety.is_emergency_stopped():
+                                        break
+                                    if self._skip_rest_event.is_set():
+                                        logger.info("SEQUENCE", "Rest pause skipped by user.")
+                                        break
+
+                                    mm = remaining // 60
+                                    ss = remaining % 60
+                                    msg = f"Rest Pause: auto-resuming in {mm:02d}:{ss:02d} (Line {completed_line_num})"
+                                    if self.on_keyboard_action:
+                                        self.on_keyboard_action(msg)
+                                    if self.on_rest_pause_countdown:
+                                        self.on_rest_pause_countdown(remaining, pause_duration)
+
+                                    safety.interruptible_sleep(
+                                        1.0,
+                                        cancel_check=lambda: self._stop_event.is_set() or safety.is_emergency_stopped() or self._skip_rest_event.is_set()
+                                    )
+                            finally:
+                                self._skip_rest_event.clear()
+                                safety.reset_hardware_state()
+
+                            if self._stop_event.is_set() or safety.is_emergency_stopped():
+                                return
+
+                            # 3. Auto-resume: transition back to RUNNING and re-focus target window
+                            logger.info("SEQUENCE", f"Rest Pause finished. Auto-resuming typing at Line {completed_line_num + 1}...")
+                            self._set_state(ExecutionState.RUNNING)
+                            if target_win:
+                                self.focus_window_by_title(target_win)
+                                time.sleep(0.4)
+
+                    rest_pause_cb = on_rest_pause_completed
+
                 def char_telemetry_cb(telemetry: Dict[str, Any]):
                     if isinstance(telemetry, dict):
                         ch = telemetry.get("char", "")
@@ -545,6 +639,7 @@ class SequenceExecutor:
                     newline_delay=newline_delay,
                     use_numpad=use_numpad,
                     line_mouse_callback=line_mouse_cb,
+                    rest_pause_callback=rest_pause_cb,
                     start_index=start_idx,
                     smart_indent=bool(action.get("smart_indent", typing_cfg.get("smart_indent", False))),
                     tab_width=action.get("tab_width"),

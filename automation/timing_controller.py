@@ -319,7 +319,8 @@ class TimingController:
         cps: Optional[float] = None,
         countdown_seconds: int = 3,
         mouse_move_enabled: bool = True,
-        use_difficulty: bool = True
+        use_difficulty: bool = True,
+        random_pause_enabled: bool = False
     ) -> Tuple[int, str]:
         """
         Calculates exact estimated completion time for text payload by summing
@@ -374,8 +375,10 @@ class TimingController:
             num_mouse_moves = max(1, int(round(newlines_count / 3.5)))
             total_seconds += num_mouse_moves * 2.68
 
-            total_seconds += min(self.MAX_CHARACTER_DELAY, max(self.MIN_CHARACTER_DELAY, char_delay))
-            prev_ch = ch
+        # Add random rest pause time (3 to 6 min, avg 270s) every ~22.5 lines if enabled
+        if random_pause_enabled and newlines_count >= 15:
+            num_rest_pauses = max(1, int(newlines_count / 22.5))
+            total_seconds += num_rest_pauses * 270
 
         total_secs = int(round(total_seconds))
         h = total_secs // 3600
