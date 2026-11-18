@@ -42,10 +42,25 @@ class TimingController:
     # Punctuation keys that warrant natural cognitive pauses
     MAJOR_PUNCTUATION = frozenset(",.;:!?")
 
+    _ASCII_DIFFICULTY_ROW_MAP: Optional[Dict[str, float]] = None
+    _estimate_cache: Dict[Any, Tuple[int, str]] = {}
+
     def __init__(self, current_cps: float = 3.0):
         self.current_cps = max(self.MIN_CONFIGURED_CPS, min(self.MAX_CONFIGURED_CPS, current_cps))
         self._last_line_mouse_angle: Optional[float] = None
         self._last_line_mouse_dist: Optional[float] = None
+        if TimingController._ASCII_DIFFICULTY_ROW_MAP is None:
+            self._build_ascii_mult_map()
+
+    def _build_ascii_mult_map(self):
+        """Precompute character difficulty * row multiplier lookup table for ASCII 0-127."""
+        mults = {}
+        for code in range(128):
+            ch = chr(code)
+            _, diff_mult, _ = self.classify_character(ch)
+            row_mult = self.get_row_multiplier(ch)
+            mults[ch] = diff_mult * row_mult
+        TimingController._ASCII_DIFFICULTY_ROW_MAP = mults
 
     def set_cps(self, cps: float):
         """Set base typing speed (supports custom speed with minimum safety floor)."""
@@ -337,6 +352,22 @@ class TimingController:
             self.MIN_CONFIGURED_CPS,
             float(cps if cps is not None else self.current_cps)
         )
+
+        # Check in-memory fast memoization cache
+        cache_key = (
+            len(text),
+            hash(text),
+            round(effective_cps, 2),
+            countdown_seconds,
+            mouse_move_enabled,
+            use_difficulty,
+            random_pause_enabled,
+            rest_interval_lines,
+            rest_duration_seconds
+        )
+        if cache_key in self._estimate_cache:
+            return self._estimate_cache[cache_key]
+
         base_delay = 1.0 / effective_cps
 
         total_seconds = float(countdown_seconds) + 1.0  # Countdown + focus buffer
@@ -344,11 +375,15 @@ class TimingController:
         newlines_count = 0
         symbols_set = set("{}[]()<>!@#$%^&*~_+|?;:'\",./\\-=`")
 
+        if use_difficulty:
+            if self._ASCII_DIFFICULTY_ROW_MAP is None:
+                self._build_ascii_mult_map()
+            diff_row_map = self._ASCII_DIFFICULTY_ROW_MAP
+
         for ch in text:
             if use_difficulty:
-                _, diff_mult, _ = self.classify_character(ch)
-                row_mult = self.get_row_multiplier(ch)
-                char_delay = base_delay * diff_mult * row_mult
+                char_mult = diff_row_map.get(ch, 1.0)
+                char_delay = base_delay * char_mult
 
                 if ch in symbols_set and prev_ch in symbols_set:
                     char_delay += base_delay * 0.50
@@ -391,6 +426,11 @@ class TimingController:
         m = (total_secs % 3600) // 60
         s = total_secs % 60
         time_str = f"{h:02d}:{m:02d}:{s:02d}"
+
+        # Maintain cache size
+        if len(self._estimate_cache) > 256:
+            self._estimate_cache.clear()
+        self._estimate_cache[cache_key] = (total_secs, time_str)
         return total_secs, time_str
 
 
