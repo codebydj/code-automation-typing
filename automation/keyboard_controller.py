@@ -132,23 +132,34 @@ class KeyboardController:
             )
             return False
 
-    def _clear_current_line_auto_indent(self, expected_indent: int) -> bool:
-        """Remove matching IDE-inserted indentation without selecting prior lines."""
-        if expected_indent <= 0:
-            return True
-
+    def _clear_current_line_auto_indent(self) -> bool:
+        """Remove IDE-inserted indentation without selecting prior lines."""
         original_clipboard = pyperclip.paste()
         marker = f"__deskpilot_indent_{time.monotonic_ns()}__"
         try:
             pyperclip.copy(marker)
-            for _ in range(expected_indent):
-                pyautogui.hotkey("shift", "left")
+            pyautogui.hotkey("shift", "home")
             pyautogui.hotkey("ctrl", "c")
             selected = pyperclip.paste()
             if selected != marker and selected and all(char in " \t" for char in selected):
                 pyautogui.press("backspace")
             else:
                 pyautogui.press("right")
+
+            auto_indent = 0
+            while True:
+                pyautogui.hotkey("shift", "left")
+                pyautogui.hotkey("ctrl", "c")
+                selected = pyperclip.paste()
+                if selected == marker or not selected or not all(char in " \t" for char in selected):
+                    pyautogui.press("right")
+                    break
+                auto_indent = len(selected)
+
+            if auto_indent:
+                for _ in range(auto_indent):
+                    pyautogui.hotkey("shift", "left")
+                pyautogui.press("backspace")
             return True
         finally:
             pyperclip.copy(original_clipboard)
@@ -267,13 +278,8 @@ class KeyboardController:
                 
                 # Update line and column; cursor movement is a separate sequence action.
                 if ch == "\n":
-                    next_line_end = text.find("\n", idx + 1)
-                    if next_line_end < 0:
-                        next_line_end = total_chars
-                    next_line = text[idx + 1:next_line_end]
-                    expected_indent = len(next_line) - len(next_line.lstrip(" \t"))
-                    if smart_indent and expected_indent:
-                        self._clear_current_line_auto_indent(expected_indent)
+                    if smart_indent:
+                        self._clear_current_line_auto_indent()
                     current_line += 1
                     current_col = 1
 

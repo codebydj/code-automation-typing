@@ -546,7 +546,7 @@ class SequenceExecutor:
                     use_numpad=use_numpad,
                     line_mouse_callback=line_mouse_cb,
                     start_index=start_idx,
-                    smart_indent=bool(action.get("smart_indent", False)),
+                    smart_indent=bool(action.get("smart_indent", typing_cfg.get("smart_indent", False))),
                     tab_width=action.get("tab_width"),
                     progress_callback=char_telemetry_cb,
                     pause_event=self._pause_event,

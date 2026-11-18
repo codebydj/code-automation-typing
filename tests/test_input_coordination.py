@@ -238,29 +238,72 @@ class TestInputCoordination(unittest.TestCase):
         self.assertTrue(status_messages)
 
     def test_smart_indent_cleanup_never_deletes_a_line_break(self):
-        with patch(
+        with patch("automation.keyboard_controller.time.monotonic_ns", return_value=123), \
+             patch(
             "automation.keyboard_controller.pyperclip.paste",
-            side_effect=("existing clipboard", "\n")
+            side_effect=("existing clipboard", "__deskpilot_indent_123__", "\n")
         ), patch("automation.keyboard_controller.pyperclip.copy"), \
              patch("automation.keyboard_controller.pyautogui.press") as press, \
              patch("automation.keyboard_controller.pyautogui.hotkey") as hotkey:
-            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent(1))
+            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent())
         self.assertFalse(any(call.args == ("backspace",) for call in press.call_args_list))
-        hotkey.assert_any_call("shift", "left")
+        hotkey.assert_any_call("shift", "home")
 
-    def test_smart_indent_cleanup_removes_only_matching_spaces(self):
+    def test_smart_indent_cleanup_removes_editor_inserted_spaces(self):
         with patch(
             "automation.keyboard_controller.pyperclip.paste",
-            side_effect=("existing clipboard", "    ")
+            side_effect=("existing clipboard", "    ", "\n")
         ), patch("automation.keyboard_controller.pyperclip.copy"), \
              patch("automation.keyboard_controller.pyautogui.press") as press, \
              patch("automation.keyboard_controller.pyautogui.hotkey") as hotkey:
-            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent(4))
-        press.assert_called_once_with("backspace")
+            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent())
+        press.assert_any_call("backspace")
+        hotkey.assert_any_call("shift", "home")
+
+    def test_smart_indent_cleanup_removes_actual_indent_when_source_indent_is_zero(self):
+        with patch(
+            "automation.keyboard_controller.pyperclip.paste",
+            side_effect=("existing clipboard", "    ", "\n    ")
+        ), patch("automation.keyboard_controller.pyperclip.copy"), \
+             patch("automation.keyboard_controller.pyautogui.press") as press, \
+             patch("automation.keyboard_controller.pyautogui.hotkey") as hotkey:
+            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent())
+        press.assert_any_call("backspace")
+        hotkey.assert_any_call("shift", "home")
+
+    def test_smart_indent_cleanup_removes_actual_indent_when_source_indent_differs(self):
+        with patch("automation.keyboard_controller.time.monotonic_ns", return_value=123), \
+             patch(
+            "automation.keyboard_controller.pyperclip.paste",
+            side_effect=("existing clipboard", "__deskpilot_indent_123__", " ", "  ", "   ", "    ", "\n    ")
+        ), patch("automation.keyboard_controller.pyperclip.copy"), \
+             patch("automation.keyboard_controller.pyautogui.press") as press, \
+             patch("automation.keyboard_controller.pyautogui.hotkey") as hotkey:
+            self.assertTrue(keyboard_ctrl._clear_current_line_auto_indent())
+        press.assert_any_call("backspace")
         self.assertEqual(
             sum(call.args == ("shift", "left") for call in hotkey.call_args_list),
-            4
+            9
         )
+
+    def test_smart_indent_cleanup_runs_after_newline_with_no_source_indent(self):
+        with patch.object(keyboard_ctrl, "type_character", return_value=True), \
+             patch.object(keyboard_ctrl, "_clear_current_line_auto_indent") as clear_indent:
+            self.assertTrue(keyboard_ctrl.type_text("\n", base_delay=0, smart_indent=True))
+        clear_indent.assert_called_once_with()
+
+    def test_sequence_executor_uses_configured_smart_indent_by_default(self):
+        executor = SequenceExecutor()
+        with patch(
+            "automation.sequence_executor.load_config",
+            return_value={"typing": {"smart_indent": True}, "mouse": {"line_interaction": {"enabled": False}}}
+        ), patch.object(keyboard_ctrl, "type_text", return_value=True) as type_text:
+            executor._execute_single_action({
+                "type": "type_text",
+                "text": "line\n",
+                "line_mouse_enabled": False
+            })
+        self.assertTrue(type_text.call_args.kwargs["smart_indent"])
 
     def test_vs_code_target_matches_full_window_title(self):
         class FakeWindow:
