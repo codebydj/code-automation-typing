@@ -12,8 +12,8 @@
         "enabled": true,
         "min_interval_lines": 15,
         "max_interval_lines": 30,
-        "min_duration_seconds": 180,
-        "max_duration_seconds": 360
+        "min_duration_seconds": 120,
+        "max_duration_seconds": 240
     },
     "execution": {
         "default_action_pause": 0.1
