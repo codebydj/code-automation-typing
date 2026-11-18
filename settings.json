@@ -1,11 +1,11 @@
 {
     "typing": {
-        "speed_cps": 3.0,
+        "speed_cps": 2.2,
         "timing_mode": "difficulty",
         "use_numpad": false,
         "punct_delay": 0.15,
         "newline_delay": 0.25,
-        "base_delay": 0.3333333333333333,
+        "base_delay": 0.45454545454545453,
         "smart_indent": false
     },
     "random_pause": {
@@ -22,8 +22,6 @@
         "movement_profile": "curved",
         "move_duration": 0.45,
         "easing": "easeInOutQuad",
-        "click_delay": 0.05,
-        "double_click_interval": 0.15,
         "human_like": true,
         "line_interaction": {
             "enabled": true,
@@ -32,7 +30,9 @@
             "target_x": 600,
             "target_y": 450,
             "click_enabled": false
-        }
+        },
+        "click_delay": 0.05,
+        "double_click_interval": 0.15
     },
     "safety": {
         "failsafe": true,
@@ -48,7 +48,8 @@
         "stop": "ctrl+alt+f4"
     },
     "editor": {
-        "indent_width": 4
+        "indent_width": 4,
+        "autoscroll": true
     },
     "layout": {
         "explorer_width": 284,

@@ -132,7 +132,17 @@ class LineNumbersGutter(tk.Canvas):
     def redraw(self):
         """Redraw line numbers based on visible lines in text widget and draw typing pointer."""
         self.delete("all")
+        try:
+            total_lines = int(self.text_widget.index("end-1c").split(".")[0])
+        except Exception:
+            total_lines = 1
+        digits = max(3, len(str(total_lines)))
+        needed_width = max(46, digits * 9 + 18)
+        if int(self.cget("width")) != needed_width:
+            self.configure(width=needed_width)
+
         i = self.text_widget.index("@0,0")
+        right_margin = needed_width - 8
         while True:
             dline = self.text_widget.dlineinfo(i)
             if dline is None:
@@ -142,14 +152,14 @@ class LineNumbersGutter(tk.Canvas):
             # If this is the active line being typed by automation, show glowing pointer!
             if self.active_typing_line is not None and str(self.active_typing_line) == linenum:
                 self.create_text(
-                    8, y + 2,
+                    6, y + 2,
                     anchor="nw",
                     text="▶",
                     fill="#38bdf8",
                     font=("Consolas", 10, "bold")
                 )
                 self.create_text(
-                    40, y + 2,
+                    right_margin, y + 2,
                     anchor="ne",
                     text=linenum,
                     fill="#38bdf8",
@@ -157,7 +167,7 @@ class LineNumbersGutter(tk.Canvas):
                 )
             else:
                 self.create_text(
-                    40, y + 2,
+                    right_margin, y + 2,
                     anchor="ne",
                     text=linenum,
                     fill="#565969",
@@ -190,6 +200,11 @@ class IDECodeEditor(ctk.CTkFrame):
             self.indent_width = 4
         if self.indent_width not in (2, 4, 8):
             self.indent_width = 4
+
+        # Debouncing timers for high responsiveness
+        self._highlight_job = None
+        self._notify_job = None
+        self._estimate_job = None
 
         self._create_editor_header()
         self._create_code_area()
@@ -511,13 +526,25 @@ class IDECodeEditor(ctk.CTkFrame):
         self.gutter.grid(row=0, column=0, sticky="ns")
 
         # Scrollbars
-        v_scroll = ttk.Scrollbar(code_container, orient="vertical", command=self._on_v_scroll)
-        v_scroll.grid(row=0, column=2, sticky="ns")
-        h_scroll = ttk.Scrollbar(code_container, orient="horizontal", command=self.text_widget.xview)
-        h_scroll.grid(row=1, column=1, sticky="ew")
+        self.v_scroll = ttk.Scrollbar(code_container, orient="vertical", command=self._on_v_scroll)
+        self.v_scroll.grid(row=0, column=2, sticky="ns")
+        self.h_scroll = ttk.Scrollbar(code_container, orient="horizontal", command=self.text_widget.xview)
+        self.h_scroll.grid(row=1, column=1, sticky="ew")
 
-        self.text_widget.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+        # Hook yscrollcommand so line numbers gutter redraws on EVERY vertical scroll
+        self.text_widget.configure(yscrollcommand=self._on_text_yscroll, xscrollcommand=self.h_scroll.set)
         self.text_widget.grid(row=0, column=1, sticky="nsew")
+
+        # Forward mouse wheel on gutter directly to text_widget
+        def _on_gutter_wheel(event):
+            delta = -1 if event.delta > 0 else 1
+            self.text_widget.yview_scroll(delta * 3, "units")
+            return "break"
+
+        self.gutter.bind("<MouseWheel>", _on_gutter_wheel)
+        self.gutter.bind("<Button-4>", lambda _e: (self.text_widget.yview_scroll(-3, "units"), "break")[1])
+        self.gutter.bind("<Button-5>", lambda _e: (self.text_widget.yview_scroll(3, "units"), "break")[1])
+        code_container.bind("<Configure>", lambda _e: self.gutter.redraw())
 
         # Configure syntax tags
         self._setup_syntax_tags()
@@ -530,10 +557,23 @@ class IDECodeEditor(ctk.CTkFrame):
         self.text_widget.bind("<Return>", self._handle_return)
         self.text_widget.bind("<Control-a>", self._handle_select_all)
         self.text_widget.bind("<Control-A>", self._handle_select_all)
+        self.text_widget.bind("<Control-g>", lambda _e: (self.jump_to_line(), "break")[1])
+        self.text_widget.bind("<Control-G>", lambda _e: (self.jump_to_line(), "break")[1])
+        self.text_widget.bind("<Control-f>", lambda _e: (self.find_text(), "break")[1])
+        self.text_widget.bind("<Control-F>", lambda _e: (self.find_text(), "break")[1])
+
+    def _on_text_yscroll(self, *args):
+        """Synchronize vertical scrollbar thumb and redraw line numbers gutter on every scroll."""
+        if hasattr(self, "v_scroll"):
+            self.v_scroll.set(*args)
+        if hasattr(self, "gutter"):
+            self.gutter.redraw()
 
     def _on_v_scroll(self, *args):
+        """Called when user drags or clicks vertical scrollbar."""
         self.text_widget.yview(*args)
-        self.gutter.redraw()
+        if hasattr(self, "gutter"):
+            self.gutter.redraw()
 
     def _setup_syntax_tags(self):
         """Define colors for syntax tokens and live typing pointer."""
@@ -617,24 +657,59 @@ class IDECodeEditor(ctk.CTkFrame):
         self.btn_calc_time.pack(side="right", padx=4)
 
     def _on_text_modified(self, event=None):
-        self.gutter.redraw()
-        self._update_cursor_info()
-        self.apply_syntax_highlighting()
+        """Handle content modifications with debounced highlighting and estimation for maximum responsiveness."""
+        if hasattr(self, "gutter"):
+            self.gutter.redraw()
+        self._update_cursor_labels()
+
+        # Debounce syntax highlighting (150ms)
+        if getattr(self, "_highlight_job", None) is not None:
+            try:
+                self.after_cancel(self._highlight_job)
+            except Exception:
+                pass
+        self._highlight_job = self.after(150, self.apply_syntax_highlighting)
+
+        # Debounce time estimation (200ms)
+        if getattr(self, "_estimate_job", None) is not None:
+            try:
+                self.after_cancel(self._estimate_job)
+            except Exception:
+                pass
+        self._estimate_job = self.after(200, lambda: self.calculate_estimated_time(show_dialog=False))
+
+        # Debounce code change callback (120ms)
+        if getattr(self, "_notify_job", None) is not None:
+            try:
+                self.after_cancel(self._notify_job)
+            except Exception:
+                pass
+        self._notify_job = self.after(120, self._emit_code_changed)
+
+    def _emit_code_changed(self):
         if self.on_code_changed:
             self.on_code_changed(self.get_code())
 
     def _on_cursor_moved(self, event=None):
-        self._update_cursor_info()
+        self._update_cursor_labels()
+
+    def _update_cursor_labels(self):
+        """Immediately update cursor position and statistics labels."""
+        try:
+            cursor_pos = self.text_widget.index(tk.INSERT)
+            line, col = cursor_pos.split(".")
+            code = self.get_code()
+            chars = len(code)
+            lines = code.count("\n") + 1
+            if hasattr(self, "lbl_pos"):
+                self.lbl_pos.configure(text=f"Ln {line}, Col {int(col) + 1}")
+            if hasattr(self, "lbl_stats"):
+                self.lbl_stats.configure(text=f"{chars} chars • {lines} lines")
+        except Exception:
+            pass
 
     def _update_cursor_info(self):
-        cursor_pos = self.text_widget.index(tk.INSERT)
-        line, col = cursor_pos.split(".")
-        code = self.get_code()
-        chars = len(code)
-        lines = code.count("\n") + 1
-        self.lbl_pos.configure(text=f"Ln {line}, Col {int(col) + 1}")
-        self.lbl_stats.configure(text=f"{chars} chars • {lines} lines")
-        # Automatically update the estimated completion time in HH:MM:SS
+        self._update_cursor_labels()
         self.calculate_estimated_time(show_dialog=False)
 
     def calculate_estimated_time(self, show_dialog: bool = False) -> str:
@@ -819,32 +894,33 @@ class IDECodeEditor(ctk.CTkFrame):
     def show_typing_pointer(self, line_num: int, col_num: int, char: str = ""):
         """Highlight current line and character pointer where typing is actively occurring."""
         try:
-            self.gutter.active_typing_line = line_num
-            self.gutter.redraw()
+            # Only redraw gutter and scroll into view when the active line actually changes
+            if getattr(self.gutter, "active_typing_line", None) != line_num:
+                self.gutter.active_typing_line = line_num
+                self.gutter.redraw()
 
-            # Remove previous typing highlights
-            self.text_widget.tag_remove("typing_line", "1.0", "end")
+                # Highlight active line
+                self.text_widget.tag_remove("typing_line", "1.0", "end")
+                line_start = f"{line_num}.0"
+                line_end = f"{line_num}.end"
+                self.text_widget.tag_add("typing_line", line_start, line_end)
+
+                # Auto-scroll editor to keep active typing line visible
+                self.text_widget.see(f"{line_num}.0")
+
+            # Update exact character cursor highlight
             self.text_widget.tag_remove("typing_cursor", "1.0", "end")
-
-            # Highlight current line
-            line_start = f"{line_num}.0"
-            line_end = f"{line_num}.end"
-            self.text_widget.tag_add("typing_line", line_start, line_end)
-
-            # Highlight exact character
             c_idx = max(0, col_num - 1)
             char_pos = f"{line_num}.{c_idx}"
             char_end = f"{line_num}.{c_idx + 1}"
             self.text_widget.tag_add("typing_cursor", char_pos, char_end)
 
-            # Auto-scroll so current line is visible in editor
-            self.text_widget.see(f"{line_num}.0")
-
             disp_char = repr(char)[1:-1] if char else " "
-            self.lbl_current_line.configure(
-                text=f"▶ Typing: Ln {line_num}, Col {col_num} ('{disp_char}')",
-                text_color="#38bdf8"
-            )
+            if hasattr(self, "lbl_current_line"):
+                self.lbl_current_line.configure(
+                    text=f"▶ Typing: Ln {line_num}, Col {col_num} ('{disp_char}')",
+                    text_color="#38bdf8"
+                )
         except Exception:
             pass
 
@@ -862,6 +938,62 @@ class IDECodeEditor(ctk.CTkFrame):
         except Exception:
             pass
 
+    def jump_to_line(self):
+        """Prompt user for line number and jump cursor to it (Ctrl+G)."""
+        from tkinter import simpledialog
+        try:
+            total_lines = max(1, self.get_code().count("\n") + 1)
+            line = simpledialog.askinteger(
+                "Jump to Line",
+                f"Enter line number (1 - {total_lines}):",
+                parent=self,
+                minvalue=1,
+                maxvalue=total_lines
+            )
+            if line:
+                self.text_widget.mark_set(tk.INSERT, f"{line}.0")
+                self.text_widget.see(f"{line}.0")
+                self._update_cursor_labels()
+        except Exception:
+            pass
+
+    def find_text(self):
+        """Find text in editor with live highlight markers (Ctrl+F)."""
+        from tkinter import simpledialog, messagebox
+        try:
+            query = simpledialog.askstring("Find in Code", "Enter text to find:", parent=self)
+            if not query:
+                self.text_widget.tag_remove("search_highlight", "1.0", "end")
+                return
+
+            self.text_widget.tag_remove("search_highlight", "1.0", "end")
+            self.text_widget.tag_configure("search_highlight", background="#854d0e", foreground="#ffffff")
+
+            start_pos = "1.0"
+            count = 0
+            first_pos = None
+            while True:
+                pos = self.text_widget.search(query, start_pos, stopindex="end", nocase=True)
+                if not pos:
+                    break
+                if first_pos is None:
+                    first_pos = pos
+                end_pos = f"{pos}+{len(query)}c"
+                self.text_widget.tag_add("search_highlight", pos, end_pos)
+                start_pos = end_pos
+                count += 1
+                if count > 500:
+                    break
+
+            if first_pos:
+                self.text_widget.mark_set(tk.INSERT, first_pos)
+                self.text_widget.see(first_pos)
+                self._update_cursor_labels()
+            else:
+                messagebox.showinfo("Find", f"No matches found for '{query}'.", parent=self)
+        except Exception:
+            pass
+
     def get_cursor_line(self) -> int:
         """Return the 1-based line number of the text insertion cursor."""
         try:
@@ -876,18 +1008,6 @@ class IDECodeEditor(ctk.CTkFrame):
             return len(self.text_widget.get("1.0", idx))
         except Exception:
             return 0
-
-    def clear_typing_pointer(self):
-        """Reset live cursor tags, line gutter pointer, and idle status."""
-        try:
-            self.text_widget.tag_remove("typing_line", "1.0", "end")
-            self.text_widget.tag_remove("typing_cursor", "1.0", "end")
-            self.gutter.active_typing_line = None
-            self.gutter.redraw()
-            if hasattr(self, "lbl_current_line"):
-                self.lbl_current_line.configure(text="▶ Pointer: Idle", text_color="#38bdf8")
-        except Exception:
-            pass
 
     def update_live_typing(self, char: str, line_num: int, col_num: int, text_so_far: str = ""):
         """Update the live typing label with the current character being typed."""

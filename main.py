@@ -29,8 +29,9 @@ from automation.mouse_controller import mouse_ctrl
 from automation.hotkey_manager import HotkeyManager
 from automation.input_dispatcher import input_dispatcher
 
-# Core IDE Editor
+# Core IDE Editor & Dialogs
 from ui.ide_editor import IDECodeEditor
+from ui.settings_dialog import SettingsDialog
 
 
 class DeskPilotApp(ctk.CTk):
@@ -78,6 +79,8 @@ class DeskPilotApp(ctk.CTk):
         self._last_typed_line: int = 1
         self._total_chars: int = 0
         self._total_lines: int = 1
+        self._cached_est_remaining: str = "00:00:00"
+        self._last_estimate_calc_time: float = 0.0
 
         # Random rest pause option (3–6 minutes human break)
         self._random_pause_enabled: bool = bool(self.config_data.get("random_pause", {}).get("enabled", True))
@@ -327,22 +330,41 @@ class DeskPilotApp(ctk.CTk):
         )
         self.btn_rest_pause.pack(side="left", padx=2)
 
+        # Preferences & Settings Button
+        self.btn_settings = ctk.CTkButton(
+            self.toolbar,
+            text="⚙️ Settings",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            width=84,
+            height=28,
+            fg_color="#1e2230",
+            hover_color="#2d3348",
+            text_color="#e2e8f0",
+            corner_radius=5,
+            command=self._handle_open_settings
+        )
+        self.btn_settings.pack(side="left", padx=2)
+
         # Right side: Simple Target selector, Mode selector, and Speed selector
         right_deck = ctk.CTkFrame(self.toolbar, fg_color="transparent")
         right_deck.pack(side="right", padx=(4, 10), pady=6)
 
-        # Speed selector (default: 3 CPS, max: 3.5 CPS)
+        # Speed selector (default: 3 CPS, supports arbitrary custom speeds)
         self.opt_speed = ctk.CTkOptionMenu(
             right_deck,
-            values=["3 CPS", "1 CPS", "1.5 CPS", "2 CPS", "2.5 CPS", "3.5 CPS"],
-            width=84,
+            values=["3 CPS", "1 CPS", "1.5 CPS", "2 CPS", "2.5 CPS", "3.5 CPS", "5 CPS", "Custom..."],
+            width=88,
             height=26,
             font=ctk.CTkFont(size=11),
             command=self._on_speed_changed
         )
         curr_speed = float(self.config_data.get("typing", {}).get("speed_cps", 3.0))
-        curr_speed = min(3.5, max(0.5, curr_speed))
-        self.opt_speed.set(f"{int(curr_speed)} CPS" if curr_speed.is_integer() else f"{curr_speed} CPS")
+        speed_txt = f"{int(curr_speed)} CPS" if curr_speed.is_integer() else f"{curr_speed:.1f} CPS"
+        curr_vals = list(self.opt_speed.cget("values"))
+        if speed_txt not in curr_vals:
+            curr_vals.insert(0, speed_txt)
+            self.opt_speed.configure(values=curr_vals)
+        self.opt_speed.set(speed_txt)
         self.opt_speed.pack(side="right", padx=4)
 
         ctk.CTkLabel(right_deck, text="Speed:", font=ctk.CTkFont(size=11), text_color="#94a3b8").pack(side="right", padx=(4, 1))
@@ -455,9 +477,15 @@ class DeskPilotApp(ctk.CTk):
             self._ui_actions.put(lambda: self._update_ui_state(state_enum))
 
         def on_countdown(secs):
-            self._ui_actions.put(lambda: self.lbl_sb_status.configure(
-                text=f"● Countdown: {secs}s (Switch to target window)",
-                text_color="#f59e0b"
+            rem_str = getattr(self, "_cached_est_remaining", "00:00:00")
+            self._ui_actions.put(lambda: (
+                self.lbl_sb_status.configure(
+                    text=f"● Countdown: {secs}s (Switch to target window)",
+                    text_color="#f59e0b"
+                ),
+                self.lbl_sb_time.configure(
+                    text=f"Est. Remaining: {rem_str} • Elapsed: 00:00:00"
+                )
             ))
 
         def on_progress(current_step, total_steps, pct):
@@ -475,19 +503,31 @@ class DeskPilotApp(ctk.CTk):
                 self._last_typed_index = idx
                 self._last_typed_line = ln
 
-                # Calculate remaining time using selected mode (Difficulty-Based vs Fixed CPS)
-                code = self.panel_editor.get_code()
-                speed_cps = self._get_current_speed_cps()
-                is_difficulty = getattr(self, "opt_mode", None) is None or self.opt_mode.get() == "Difficulty-Based"
-                from automation.timing_controller import timing_controller
-                rem_seconds, rem_str = timing_controller.calculate_sequence_estimate(
-                    text=code[idx:],
-                    cps=speed_cps,
-                    countdown_seconds=0,
-                    mouse_move_enabled=True,
-                    use_difficulty=is_difficulty,
-                    random_pause_enabled=getattr(self, "_random_pause_enabled", False)
-                )
+                # Throttle remaining time calculation for max UI responsiveness (at most 1/sec or on newline)
+                now = time.monotonic()
+                if (now - getattr(self, "_last_estimate_calc_time", 0.0)) >= 1.0 or ch == "\n":
+                    self._last_estimate_calc_time = now
+                    code = self.panel_editor.get_code()
+                    speed_cps = self._get_current_speed_cps()
+                    is_difficulty = getattr(self, "opt_mode", None) is None or self.opt_mode.get() == "Difficulty-Based"
+                    rp_cfg = self.config_data.get("random_pause", {})
+                    rest_interval = (int(rp_cfg.get("min_interval_lines", 15)), int(rp_cfg.get("max_interval_lines", 30)))
+                    rest_duration = (int(rp_cfg.get("min_duration_seconds", 180)), int(rp_cfg.get("max_duration_seconds", 360)))
+
+                    from automation.timing_controller import timing_controller
+                    _, rem_str = timing_controller.calculate_sequence_estimate(
+                        text=code[idx:],
+                        cps=speed_cps,
+                        countdown_seconds=0,
+                        mouse_move_enabled=True,
+                        use_difficulty=is_difficulty,
+                        random_pause_enabled=getattr(self, "_random_pause_enabled", False),
+                        rest_interval_lines=rest_interval,
+                        rest_duration_seconds=rest_duration
+                    )
+                    self._cached_est_remaining = rem_str
+                else:
+                    rem_str = getattr(self, "_cached_est_remaining", "00:00:00")
 
                 # Calculate elapsed time
                 elapsed_sec = int(max(0, time.monotonic() - getattr(self, "_typing_start_time", time.monotonic())))
@@ -560,6 +600,8 @@ class DeskPilotApp(ctk.CTk):
                 text="● Rest Pause: auto-resuming in 3–6 min... [F7 to Skip]",
                 text_color="#f59e0b"
             )
+            if self.config_data.get("safety", {}).get("beep_on_countdown", True):
+                threading.Thread(target=self._play_chime, args=("rest",), daemon=True).start()
 
         elif state == ExecutionState.COUNTDOWN:
             self.btn_start.configure(state="disabled", fg_color="#1f2937")
@@ -594,6 +636,8 @@ class DeskPilotApp(ctk.CTk):
                 self.lbl_sb_progress.configure(text=f"Progress: 100.0% ({tot_chars} / {tot_chars} chars)")
                 # Clear checkpoint upon full completion
                 self._clear_checkpoint()
+                if self.config_data.get("safety", {}).get("beep_on_countdown", True):
+                    threading.Thread(target=self._play_chime, args=("complete",), daemon=True).start()
             elif state == ExecutionState.EMERGENCY_STOPPED:
                 self.lbl_sb_status.configure(text="● EMERGENCY STOP (Inputs Released)", text_color="#ef4444")
             elif state == ExecutionState.STOPPED:
@@ -606,12 +650,12 @@ class DeskPilotApp(ctk.CTk):
     # =========================================================================
 
     def _get_current_speed_cps(self) -> float:
-        """Parse typing speed in characters per second from toolbar selector (max 3.5 CPS)."""
+        """Parse typing speed in characters per second from toolbar selector."""
         try:
             val = float(self.opt_speed.get().split()[0])
-            return min(3.5, max(0.5, val))
+            return max(0.2, val)
         except Exception:
-            return 3.0
+            return float(self.config_data.get("typing", {}).get("speed_cps", 3.0))
 
     def _handle_start_automation(self):
         """
@@ -652,6 +696,18 @@ class DeskPilotApp(ctk.CTk):
 
         # Code typing task (strictly character typing only, natural mouse after every line)
         is_difficulty = getattr(self, "opt_mode", None) is None or self.opt_mode.get() == "Difficulty-Based"
+        rp_cfg = self.config_data.get("random_pause", {})
+        rp_min_l = int(rp_cfg.get("min_interval_lines", 15))
+        rp_max_l = int(rp_cfg.get("max_interval_lines", 30))
+        rp_min_s = int(rp_cfg.get("min_duration_seconds", 180))
+        rp_max_s = int(rp_cfg.get("max_duration_seconds", 360))
+
+        mouse_cfg = self.config_data.get("mouse", {})
+        line_mouse_cfg = mouse_cfg.get("line_interaction", {})
+        m_enabled = bool(line_mouse_cfg.get("enabled", True))
+        m_min_l = int(line_mouse_cfg.get("min_lines", 2))
+        m_max_l = int(line_mouse_cfg.get("max_lines", 5))
+
         tasks.append({
             "type": "type_code",
             "text": code,
@@ -661,16 +717,16 @@ class DeskPilotApp(ctk.CTk):
             "use_difficulty": is_difficulty,
             "exact_speed": not is_difficulty,
             "tab_width": getattr(self.panel_editor, "indent_width", 4),
-            "line_mouse_enabled": True,
+            "line_mouse_enabled": m_enabled,
             "every_line": False,
-            "min_lines": 2,
-            "max_lines": 5,
+            "min_lines": m_min_l,
+            "max_lines": m_max_l,
             "natural_line_mouse": True,
             "random_pause_enabled": self._random_pause_enabled,
-            "random_pause_min_lines": 15,
-            "random_pause_max_lines": 30,
-            "random_pause_min_seconds": 180,
-            "random_pause_max_seconds": 360,
+            "random_pause_min_lines": rp_min_l,
+            "random_pause_max_lines": rp_max_l,
+            "random_pause_min_seconds": rp_min_s,
+            "random_pause_max_seconds": rp_max_s,
             "smart_indent": False,
             "target_window": target_app,
             "description": f"Type code ({'Difficulty-Based' if is_difficulty else 'Fixed CPS'} at {speed_cps:.1f} CPS, {len(code)} chars)"
@@ -679,6 +735,31 @@ class DeskPilotApp(ctk.CTk):
         self._typing_start_time = time.monotonic()
         self._last_typed_index = start_char_idx
         self._last_typed_line = self.checkpoint_line or 1
+
+        # Calculate and show remaining time immediately at working start
+        from automation.timing_controller import timing_controller
+        remaining_code = code[start_char_idx:]
+        tot_chars = len(code)
+        tot_lines = code.count("\n") + 1
+        curr_line = self.checkpoint_line or 1
+
+        tot_secs, est_str = timing_controller.calculate_sequence_estimate(
+            text=remaining_code,
+            cps=speed_cps,
+            countdown_seconds=countdown,
+            mouse_move_enabled=m_enabled,
+            use_difficulty=is_difficulty,
+            random_pause_enabled=self._random_pause_enabled,
+            rest_interval_lines=(rp_min_l, rp_max_l),
+            rest_duration_seconds=(rp_min_s, rp_max_s)
+        )
+        self._cached_est_remaining = est_str
+        self._last_estimate_calc_time = time.monotonic()
+
+        # Display remaining time immediately at working start
+        self.lbl_sb_time.configure(text=f"Est. Remaining: {est_str} • Elapsed: 00:00:00")
+        self.lbl_sb_lines.configure(text=f"Line: {curr_line} / {tot_lines}")
+        self.lbl_sb_progress.configure(text=f"Progress: 0.0% ({start_char_idx} / {tot_chars} chars)")
 
         logger.info("SYSTEM", f"Starting code typing automation targeting '{target_app}' at {speed_cps:.1f} CPS.")
         if not executor.start(tasks, countdown_seconds=countdown, loop=False):
@@ -835,8 +916,101 @@ class DeskPilotApp(ctk.CTk):
             return
         self._update_estimated_time()
 
-    def _on_speed_changed(self, _val: str):
+    def _handle_open_settings(self):
+        """Open the modern Preferences & Settings dialog (Ctrl+,)."""
+        SettingsDialog(self, on_save_callback=self._on_settings_saved)
+
+    def _on_settings_saved(self, new_config: dict):
+        """Callback when settings are saved in SettingsDialog."""
+        self.config_data = new_config
+        self._random_pause_enabled = bool(new_config.get("random_pause", {}).get("enabled", True))
+        if self._random_pause_enabled:
+            self.btn_rest_pause.configure(
+                text="☕ Rest: ON",
+                fg_color="#065f46",
+                hover_color="#047857",
+                text_color="#6ee7b7"
+            )
+        else:
+            self.btn_rest_pause.configure(
+                text="☕ Rest: OFF",
+                fg_color="#1f2937",
+                hover_color="#374151",
+                text_color="#9ca3af"
+            )
+
+        # Update speed optionmenu
+        speed_val = float(new_config.get("typing", {}).get("speed_cps", 3.0))
+        speed_txt = f"{int(speed_val)} CPS" if speed_val.is_integer() else f"{speed_val:.1f} CPS"
+        curr_vals = list(self.opt_speed.cget("values"))
+        if speed_txt not in curr_vals:
+            curr_vals.insert(0, speed_txt)
+            self.opt_speed.configure(values=curr_vals)
+        self.opt_speed.set(speed_txt)
+
+        # Update mode optionmenu
+        mode_val = new_config.get("typing", {}).get("timing_mode", "difficulty")
+        self.opt_mode.set("Difficulty-Based" if mode_val == "difficulty" else "Fixed CPS")
+
+        # Update editor indent
+        indent_val = int(new_config.get("editor", {}).get("indent_width", 4))
+        self.panel_editor.indent_width = indent_val
+        if hasattr(self.panel_editor, "lbl_encoding"):
+            self.panel_editor.lbl_encoding.configure(text=f"UTF-8 • Spaces: {indent_val}")
+
+        # Update failsafe
+        safety.set_failsafe(bool(new_config.get("safety", {}).get("failsafe", True)))
+
+        self._update_estimated_time()
+        logger.info("SETTINGS", f"Applied updated settings: Speed {speed_val} CPS, Rest Pause {'ON' if self._random_pause_enabled else 'OFF'}.")
+
+    def _play_chime(self, chime_type: str = "complete"):
+        """Play non-blocking Windows notification chime."""
+        try:
+            import winsound
+            if chime_type == "complete":
+                winsound.MessageBeep(winsound.MB_ICONASTERISK)
+            else:
+                winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+        except Exception:
+            pass
+
+    def _on_speed_changed(self, val: str):
         """Update estimates and editor target config when speed changes."""
+        if val == "Custom...":
+            from tkinter import simpledialog
+            try:
+                curr = self._get_current_speed_cps()
+                custom_val = simpledialog.askfloat(
+                    "Custom Typing Speed",
+                    "Enter custom typing speed in Characters Per Second (CPS):\n(e.g., 1.8, 3.2, 5.0)",
+                    initialvalue=curr,
+                    minvalue=0.2,
+                    maxvalue=20.0,
+                    parent=self
+                )
+                if custom_val is not None:
+                    txt = f"{int(custom_val)} CPS" if custom_val.is_integer() else f"{custom_val:.1f} CPS"
+                    curr_vals = list(self.opt_speed.cget("values"))
+                    if txt not in curr_vals:
+                        curr_vals.insert(0, txt)
+                        self.opt_speed.configure(values=curr_vals)
+                    self.opt_speed.set(txt)
+                    self.config_data.setdefault("typing", {})["speed_cps"] = custom_val
+                    save_config(self.config_data)
+                else:
+                    curr_speed = float(self.config_data.get("typing", {}).get("speed_cps", 3.0))
+                    self.opt_speed.set(f"{curr_speed:.1f} CPS")
+            except Exception:
+                pass
+        else:
+            try:
+                cps = float(val.split()[0])
+                self.config_data.setdefault("typing", {})["speed_cps"] = cps
+                save_config(self.config_data)
+            except Exception:
+                pass
+
         if not hasattr(self, "panel_editor"):
             return
         speed_cps = self._get_current_speed_cps()
@@ -873,6 +1047,10 @@ class DeskPilotApp(ctk.CTk):
         self.panel_editor._line_mouse_enabled = True
         self.panel_editor._use_difficulty = is_difficulty
 
+        rp_cfg = self.config_data.get("random_pause", {})
+        rest_interval = (int(rp_cfg.get("min_interval_lines", 15)), int(rp_cfg.get("max_interval_lines", 30)))
+        rest_duration = (int(rp_cfg.get("min_duration_seconds", 180)), int(rp_cfg.get("max_duration_seconds", 360)))
+
         from automation.timing_controller import timing_controller
         _, est_time_str = timing_controller.calculate_sequence_estimate(
             text=code,
@@ -880,7 +1058,9 @@ class DeskPilotApp(ctk.CTk):
             countdown_seconds=3,
             mouse_move_enabled=True,
             use_difficulty=is_difficulty,
-            random_pause_enabled=getattr(self, "_random_pause_enabled", False)
+            random_pause_enabled=getattr(self, "_random_pause_enabled", False),
+            rest_interval_lines=rest_interval,
+            rest_duration_seconds=rest_duration
         )
         self.btn_est_time.configure(text=f"⏱ Est. Time: {est_time_str}")
 
@@ -917,6 +1097,7 @@ class DeskPilotApp(ctk.CTk):
         self.bind("<F8>", lambda _e: self._handle_stop_automation())
         self.bind("<F9>", lambda _e: self._handle_save_file())
         self.bind("<F10>", lambda _e: self._handle_checkpoint())
+        self.bind("<Control-comma>", lambda _e: self._handle_open_settings())
 
     def _queue_command(self, cmd: str):
         self._ui_actions.put(cmd)

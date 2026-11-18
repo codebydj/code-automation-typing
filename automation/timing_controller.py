@@ -48,8 +48,8 @@ class TimingController:
         self._last_line_mouse_dist: Optional[float] = None
 
     def set_cps(self, cps: float):
-        """Set base typing speed within permitted limits."""
-        self.current_cps = max(self.MIN_CONFIGURED_CPS, min(self.MAX_CONFIGURED_CPS, float(cps)))
+        """Set base typing speed (supports custom speed with minimum safety floor)."""
+        self.current_cps = max(self.MIN_CONFIGURED_CPS, float(cps))
 
     # =========================================================================
     # 1. CHARACTER DIFFICULTY & ROW MAPPING
@@ -320,19 +320,22 @@ class TimingController:
         countdown_seconds: int = 3,
         mouse_move_enabled: bool = True,
         use_difficulty: bool = True,
-        random_pause_enabled: bool = False
+        random_pause_enabled: bool = False,
+        rest_interval_lines: Tuple[int, int] = (15, 30),
+        rest_duration_seconds: Tuple[int, int] = (180, 360)
     ) -> Tuple[int, str]:
         """
         Calculates exact estimated completion time for text payload by summing
         character delays (either dynamic character difficulty or fixed CPS),
         punctuation pauses, word pauses, newline pauses, and mouse movement durations.
+        Supports custom speed CPS and custom rest break intervals & durations.
         """
         if not text:
             return 0, "00:00:00"
 
         effective_cps = max(
             self.MIN_CONFIGURED_CPS,
-            min(self.MAX_CONFIGURED_CPS, float(cps if cps is not None else self.current_cps))
+            float(cps if cps is not None else self.current_cps)
         )
         base_delay = 1.0 / effective_cps
 
@@ -375,10 +378,13 @@ class TimingController:
             num_mouse_moves = max(1, int(round(newlines_count / 3.5)))
             total_seconds += num_mouse_moves * 2.68
 
-        # Add random rest pause time (3 to 6 min, avg 270s) every ~22.5 lines if enabled
-        if random_pause_enabled and newlines_count >= 15:
-            num_rest_pauses = max(1, int(newlines_count / 22.5))
-            total_seconds += num_rest_pauses * 270
+        # Add random rest pause time based on custom rest interval and duration
+        min_rest_line = rest_interval_lines[0]
+        avg_rest_interval = max(1.0, (rest_interval_lines[0] + rest_interval_lines[1]) / 2.0)
+        avg_rest_duration = max(1.0, (rest_duration_seconds[0] + rest_duration_seconds[1]) / 2.0)
+        if random_pause_enabled and newlines_count >= min_rest_line:
+            num_rest_pauses = max(1, int(newlines_count / avg_rest_interval))
+            total_seconds += num_rest_pauses * avg_rest_duration
 
         total_secs = int(round(total_seconds))
         h = total_secs // 3600
