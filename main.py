@@ -705,24 +705,10 @@ class DeskPilotApp(ctk.CTk):
 
         target_app = self.opt_target.get()
         speed_cps = self._get_current_speed_cps()
-        countdown = 3 if target_app.lower() != "active window / manual focus" else 3
+        countdown = 3
 
-        # Prepare sequential task list
+        # Prepare sequential task list (direct typing, no invasive window manipulation)
         tasks = []
-
-        # Focus target window if specified
-        if target_app and target_app.lower() not in ("active window / manual focus", "any window", "none"):
-            tasks.append({
-                "type": "focus_window",
-                "title": target_app,
-                "description": f"Focus target window: {target_app}"
-            })
-
-        tasks.append({
-            "type": "wait",
-            "seconds": 1.0,
-            "description": "Wait for target window to settle"
-        })
 
         # Checkpoint resume logic
         start_char_idx = 0
@@ -739,8 +725,8 @@ class DeskPilotApp(ctk.CTk):
         rp_brk_max = float(rp_cfg.get("break_max_minutes", 5.0))
         rp_min_l = int(rp_cfg.get("min_interval_lines", 15))
         rp_max_l = int(rp_cfg.get("max_interval_lines", 30))
-        rp_min_s = int(rp_cfg.get("min_duration_seconds", 180))
-        rp_max_s = int(rp_cfg.get("max_duration_seconds", 360))
+        rp_min_s = int(round(rp_brk_min * 60))
+        rp_max_s = max(rp_min_s, int(round(rp_brk_max * 60)))
 
         mouse_cfg = self.config_data.get("mouse", {})
         line_mouse_cfg = mouse_cfg.get("line_interaction", {})

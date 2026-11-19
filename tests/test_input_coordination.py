@@ -282,6 +282,36 @@ class TestInputCoordination(unittest.TestCase):
             self.assertTrue(success)
         self.assertIn("REST_PAUSED", states_seen)
 
+    def test_rest_pause_duration_uses_break_minutes_when_configured(self):
+        """Verify that when break minutes (3-5 min) are configured, pause_duration is 180s-300s."""
+        executor = SequenceExecutor()
+        recorded_durations = []
+        executor.on_rest_pause_countdown = lambda remaining, total: recorded_durations.append(total)
+
+        action = {
+            "type": "type_code",
+            "text": "line1\nline2\nline3\n",
+            "speed": 0.001,
+            "line_mouse_enabled": False,
+            "random_pause_enabled": True,
+            "work_min_minutes": 0.0,  # immediate trigger
+            "work_max_minutes": 0.0,
+            "break_min_minutes": 3.0,
+            "break_max_minutes": 5.0,
+            # Even if stale legacy seconds exist (e.g. 60, 120), minutes mode must take precedence!
+            "random_pause_min_seconds": 60,
+            "random_pause_max_seconds": 120,
+        }
+        with patch.object(keyboard_ctrl, "type_character", return_value=True), \
+             patch("automation.safety.safety.interruptible_sleep", return_value=True):
+            success = executor._execute_single_action(action)
+            self.assertTrue(success)
+
+        self.assertTrue(len(recorded_durations) > 0, "Rest pause should have been triggered.")
+        for dur in recorded_durations:
+            self.assertGreaterEqual(dur, 180, f"Break duration {dur}s must be >= 180s (3m), not 60-120s.")
+            self.assertLessEqual(dur, 300, f"Break duration {dur}s must be <= 300s (5m), not 60-120s.")
+
     def test_rest_pause_can_be_skipped_by_user(self):
         """Verify that skip_rest_pause and resume immediately interrupt active rest pause."""
         executor = SequenceExecutor()

@@ -283,7 +283,6 @@ class SequenceExecutor:
                     pass
                 hwnd = getattr(target, "_hWnd", None)
                 if hwnd:
-                    ctypes.windll.user32.ShowWindow(hwnd, 9)
                     ctypes.windll.user32.BringWindowToTop(hwnd)
                     ctypes.windll.user32.SetForegroundWindow(hwnd)
                 time.sleep(0.3)
@@ -533,8 +532,6 @@ class SequenceExecutor:
                                     f"Line interval reached ({completed_line_num} lines). Moving mouse to ({target_x}, {target_y}) [profile: {m_profile}]."
                                 )
                                 mouse_ctrl.move_with_profile(target_x, target_y, profile=m_profile)
-                                if target_win:
-                                    self.focus_window_by_title(target_win)
 
                             # 3. Release any inputs before continuing typing next line
                             safety.reset_hardware_state()
@@ -588,10 +585,12 @@ class SequenceExecutor:
                             safety.reset_hardware_state()
 
                             # 2. Determine random pause duration (custom minutes or seconds)
-                            if rp_min_secs is not None and rp_max_secs is not None:
+                            if use_minutes_mode:
+                                pause_duration = int(round(random.uniform(break_min_m * 60.0, break_max_m * 60.0)))
+                            elif rp_min_secs is not None and rp_max_secs is not None:
                                 pause_duration = random.randint(int(rp_min_secs), int(rp_max_secs))
                             else:
-                                pause_duration = int(random.uniform(break_min_m * 60.0, break_max_m * 60.0))
+                                pause_duration = int(round(random.uniform(break_min_m * 60.0, break_max_m * 60.0)))
 
                             work_display = f"{int((time.monotonic() - work_start_time[0]) // 60)}m" if use_minutes_mode else f"Line {completed_line_num}"
                             logger.action(
@@ -631,7 +630,7 @@ class SequenceExecutor:
                             if self._stop_event.is_set() or safety.is_emergency_stopped():
                                 return
 
-                            # 3. Auto-resume: reset work timer, transition back to RUNNING and re-focus target window
+                            # 3. Auto-resume: reset work timer and transition back to RUNNING
                             work_start_time[0] = time.monotonic()
                             next_work_target_sec[0] = random.uniform(work_min_m * 60.0, work_max_m * 60.0)
                             rp_lines_counter[0] = 0
@@ -639,9 +638,6 @@ class SequenceExecutor:
 
                             logger.info("SEQUENCE", f"Rest Break finished. Auto-resuming typing at Line {completed_line_num + 1}...")
                             self._set_state(ExecutionState.RUNNING)
-                            if target_win:
-                                self.focus_window_by_title(target_win)
-                                time.sleep(0.4)
 
                     rest_pause_cb = on_rest_pause_completed
 

@@ -230,6 +230,93 @@ class TestSettingsAndResponsiveness(unittest.TestCase):
         )
         self.assertGreater(sec_with_rest, sec_no_rest, "Rest breaks based on working minutes must increase total estimate.")
 
+    def test_settings_dialog_destroyed_during_mouse_test(self):
+        """Verify closing SettingsDialog during or after test mouse movement does not throw TclError."""
+        if not self.root:
+            self.skipTest("Tkinter GUI not available in this environment.")
+
+        saved_config = None
+        def on_save(cfg):
+            nonlocal saved_config
+            saved_config = cfg
+
+        dlg = SettingsDialog(self.root, on_save_callback=on_save)
+        self.root.update()
+
+        # Trigger mouse test
+        dlg._handle_test_mouse_move()
+
+        # Immediately destroy dialog (simulates user closing settings dialog while test runs)
+        dlg.destroy()
+        self.root.update()
+
+        # Allow scheduled timer ticks to fire; must not raise TclError
+        import time
+        t0 = time.time()
+        while time.time() - t0 < 0.2:
+            self.root.update()
+            time.sleep(0.02)
+
+        self.assertTrue(getattr(dlg, "_is_destroyed", False))
+
+    def test_settings_dialog_break_minutes_to_seconds_derivation(self):
+        """Verify break minutes (e.g. 3–5 min) strictly produce 180s–300s in saved settings."""
+        if not self.root:
+            self.skipTest("Tkinter GUI not available in this environment.")
+
+        saved_cfg = None
+        def on_save(cfg):
+            nonlocal saved_cfg
+            saved_cfg = cfg
+
+        dlg = SettingsDialog(self.root, on_save_callback=on_save)
+        self.root.update()
+
+        # Set break minutes to 3 and 5
+        dlg.ent_break_min_m.delete(0, "end")
+        dlg.ent_break_min_m.insert(0, "3")
+        dlg.ent_break_max_m.delete(0, "end")
+        dlg.ent_break_max_m.insert(0, "5")
+
+        # Save settings
+        dlg._handle_save()
+        self.root.update()
+
+        self.assertIsNotNone(saved_cfg)
+        rp = saved_cfg.get("random_pause", {})
+        self.assertEqual(rp.get("break_min_minutes"), 3.0)
+        self.assertEqual(rp.get("break_max_minutes"), 5.0)
+        self.assertEqual(rp.get("min_duration_seconds"), 180)
+        self.assertEqual(rp.get("max_duration_seconds"), 300)
+
+    def test_automation_start_does_not_minimize_or_restore_target_window(self):
+        """Verify automation start creates zero window-manipulation tasks and ShowWindow(9) is removed."""
+        from main import DeskPilotApp
+        from automation.sequence_executor import executor
+        import inspect
+
+        # 1. Verify ShowWindow(hwnd, 9) was removed from focus_window_by_title
+        src = inspect.getsource(executor.focus_window_by_title)
+        self.assertNotIn("ShowWindow", src, "focus_window_by_title must not call ShowWindow (SW_RESTORE).")
+
+        # 2. Verify _handle_start_automation does not queue focus_window task
+        app = DeskPilotApp()
+        app.update()
+        app.panel_editor.set_code("print('clean start')\n")
+        app.opt_target.set("Visual Studio Code")
+
+        # Start automation while mocking executor.start to inspect the submitted tasks
+        submitted_tasks = []
+        with patch.object(executor, "start", side_effect=lambda tasks, **kw: submitted_tasks.extend(tasks) or True):
+            app._handle_start_automation()
+
+        app.destroy()
+
+        task_types = [t.get("type") for t in submitted_tasks]
+        self.assertNotIn("focus_window", task_types, "No focus_window action that manipulates or shrinks target window.")
+        self.assertNotIn("wait", task_types, "No unnecessary wait task before typing starts.")
+        self.assertIn("type_code", task_types, "Only clean direct type_code task is queued.")
+
 
 if __name__ == "__main__":
     unittest.main()

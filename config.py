@@ -45,8 +45,8 @@ DEFAULT_CONFIG = {
         "break_max_minutes": 5.0,     # Break duration: 3–5 minutes
         "min_interval_lines": 15,     # Backward compatibility fallback
         "max_interval_lines": 30,     # Backward compatibility fallback
-        "min_duration_seconds": 180,  # Backward compatibility fallback
-        "max_duration_seconds": 360,  # Backward compatibility fallback
+        "min_duration_seconds": 180,  # Backward compatibility fallback (3 minutes = 180s)
+        "max_duration_seconds": 300,  # Backward compatibility fallback (5 minutes = 300s)
     },
 
     # Sequence timing

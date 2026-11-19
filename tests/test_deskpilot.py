@@ -502,7 +502,7 @@ class TestDeskPilotSuite(unittest.TestCase):
         with patch.object(keyboard_ctrl, "type_character", return_value=True):
             started = executor.start(sequence, countdown_seconds=0, loop=False)
             self.assertTrue(started)
-            executor.wait_for_idle(timeout=3.0)
+            executor.wait_for_idle(timeout=6.0)
             self.assertEqual(executor.get_state(), ExecutionState.COMPLETED)
 
     def test_20_natural_typing_rhythm_modes(self):

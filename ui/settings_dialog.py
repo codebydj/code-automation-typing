@@ -27,6 +27,9 @@ class SettingsDialog(ctk.CTkToplevel):
     def __init__(self, parent, on_save_callback: Optional[Callable[[Dict[str, Any]], None]] = None):
         super().__init__(parent)
 
+        self._is_destroyed = False
+        self._active_timer_ids = set()
+
         self.title("DeskPilot – Settings & Custom Preferences")
         self.geometry("640x680")
         self.minsize(580, 560)
@@ -43,6 +46,64 @@ class SettingsDialog(ctk.CTkToplevel):
 
         # Center dialog relative to parent
         self._center_window(parent)
+
+    def destroy(self):
+        """Cleanly cancel active timers and flag as destroyed to prevent callback exceptions."""
+        self._is_destroyed = True
+        for timer_id in list(self._active_timer_ids):
+            try:
+                self.after_cancel(timer_id)
+            except Exception:
+                pass
+        self._active_timer_ids.clear()
+        try:
+            super().destroy()
+        except Exception:
+            pass
+
+    def _safe_after(self, delay_ms: int, callback):
+        """Schedule a callback safely; drops silently if dialog was closed or destroyed."""
+        if getattr(self, "_is_destroyed", False):
+            return None
+        timer_id = None
+
+        def wrapper():
+            if timer_id in self._active_timer_ids:
+                self._active_timer_ids.discard(timer_id)
+            if getattr(self, "_is_destroyed", False):
+                return
+            try:
+                if self.winfo_exists():
+                    callback()
+            except Exception:
+                pass
+
+        try:
+            timer_id = self.after(delay_ms, wrapper)
+            self._active_timer_ids.add(timer_id)
+            return timer_id
+        except Exception:
+            return None
+
+    def _safe_update_test_mouse_btn(self, **kwargs):
+        """Safely configure test mouse button if dialog and widget still exist."""
+        if getattr(self, "_is_destroyed", False):
+            return
+        try:
+            if hasattr(self, "btn_test_mouse") and self.btn_test_mouse.winfo_exists():
+                self.btn_test_mouse.configure(**kwargs)
+        except Exception:
+            pass
+
+    def _safe_update_pick_btn(self, **kwargs):
+        """Safely configure pick position button if dialog and widget still exist."""
+        if getattr(self, "_is_destroyed", False):
+            return
+        try:
+            if hasattr(self, "btn_pick_pos") and self.btn_pick_pos.winfo_exists():
+                self.btn_pick_pos.configure(**kwargs)
+        except Exception:
+            pass
 
     def _center_window(self, parent):
         try:
@@ -494,38 +555,57 @@ class SettingsDialog(ctk.CTkToplevel):
 
     def _handle_test_mouse_move(self):
         """Test the natural human-like mouse movement live."""
-        self.btn_test_mouse.configure(text="Moving mouse naturally...", state="disabled", fg_color="#7c3aed")
+        self._safe_update_test_mouse_btn(text="Moving mouse naturally...", state="disabled", fg_color="#7c3aed")
         def worker():
-            from automation.mouse_controller import mouse_ctrl
-            mouse_ctrl.natural_line_mouse_move()
-            self.after(0, lambda: self.btn_test_mouse.configure(
+            try:
+                from automation.mouse_controller import mouse_ctrl
+                mouse_ctrl.natural_line_mouse_move()
+            except Exception:
+                pass
+
+            if getattr(self, "_is_destroyed", False):
+                return
+
+            self._safe_after(0, lambda: self._safe_update_test_mouse_btn(
                 text="✔ Natural Move Complete!", state="normal", fg_color="#059669"
             ))
-            self.after(2000, lambda: self.btn_test_mouse.configure(
+            self._safe_after(2000, lambda: self._safe_update_test_mouse_btn(
                 text="▶ Test Natural Mouse Movement", fg_color="#4f46e5"
             ))
         threading.Thread(target=worker, daemon=True).start()
 
     def _handle_pick_mouse_pos(self):
         """Countdown and capture user's mouse position."""
-        self.btn_pick_pos.configure(text="Move mouse now... 2", state="disabled")
+        self._safe_update_pick_btn(text="Move mouse now... 2", state="disabled")
 
         def worker():
             time.sleep(1.0)
-            self.after(0, lambda: self.btn_pick_pos.configure(text="Capturing... 1"))
+            self._safe_after(0, lambda: self._safe_update_pick_btn(text="Capturing... 1"))
             time.sleep(1.0)
-            x, y = pyautogui.position()
-            self.after(0, lambda: self._apply_picked_pos(x, y))
+            if getattr(self, "_is_destroyed", False):
+                return
+            try:
+                x, y = pyautogui.position()
+            except Exception:
+                x, y = 600, 450
+            self._safe_after(0, lambda: self._apply_picked_pos(x, y))
 
         threading.Thread(target=worker, daemon=True).start()
 
     def _apply_picked_pos(self, x: int, y: int):
-        self.ent_mouse_x.delete(0, "end")
-        self.ent_mouse_x.insert(0, str(x))
-        self.ent_mouse_y.delete(0, "end")
-        self.ent_mouse_y.insert(0, str(y))
-        self.btn_pick_pos.configure(text=f"📍 Captured ({x}, {y})", state="normal")
-        self.after(2500, lambda: self.btn_pick_pos.configure(text="📍 Pick Position (2s delay)"))
+        if getattr(self, "_is_destroyed", False):
+            return
+        try:
+            if not self.winfo_exists():
+                return
+            self.ent_mouse_x.delete(0, "end")
+            self.ent_mouse_x.insert(0, str(x))
+            self.ent_mouse_y.delete(0, "end")
+            self.ent_mouse_y.insert(0, str(y))
+            self._safe_update_pick_btn(text=f"📍 Captured ({x}, {y})", state="normal")
+            self._safe_after(2500, lambda: self._safe_update_pick_btn(text="📍 Pick Position (2s delay)"))
+        except Exception:
+            pass
 
     # -------------------------------------------------------------------------
     # TAB 4: GENERAL & EDITOR
@@ -674,11 +754,21 @@ class SettingsDialog(ctk.CTkToplevel):
         except ValueError:
             rp_min_l, rp_max_l = 15, 30
 
-        try:
-            rp_min_s = max(10, int(self.ent_rp_min_secs.get().strip()))
-            rp_max_s = max(rp_min_s, int(self.ent_rp_max_secs.get().strip()))
-        except ValueError:
-            rp_min_s, rp_max_s = int(break_min_m * 60), int(break_max_m * 60)
+        # Ensure seconds are strictly derived from the configured break minutes (e.g. 3m = 180s, 5m = 300s)
+        rp_min_s = int(round(break_min_m * 60))
+        rp_max_s = max(rp_min_s, int(round(break_max_m * 60)))
+        if hasattr(self, "ent_rp_min_secs"):
+            try:
+                self.ent_rp_min_secs.delete(0, "end")
+                self.ent_rp_min_secs.insert(0, str(rp_min_s))
+            except Exception:
+                pass
+        if hasattr(self, "ent_rp_max_secs"):
+            try:
+                self.ent_rp_max_secs.delete(0, "end")
+                self.ent_rp_max_secs.insert(0, str(rp_max_s))
+            except Exception:
+                pass
 
         try:
             m_min_l = max(1, int(self.ent_mouse_min_lines.get().strip()))
@@ -789,7 +879,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.ent_rp_min_secs.delete(0, "end")
         self.ent_rp_min_secs.insert(0, "180")
         self.ent_rp_max_secs.delete(0, "end")
-        self.ent_rp_max_secs.insert(0, "360")
+        self.ent_rp_max_secs.insert(0, "300")
 
         self.chk_mouse_enabled.select()
         self.ent_mouse_min_lines.delete(0, "end")
